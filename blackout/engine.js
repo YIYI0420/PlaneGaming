@@ -47,7 +47,7 @@
   class Game {
     constructor(options = {}) {
       this.seed = options.seed || 1937; this.stage = 'tutorial'; this.paused = false; this.time = 0; this.stageTime = 0; this.wave = 0; this.spawned = 0;
-      this.player = { x: 0, z: 15.6, y: 1.65, yaw: 0, pitch: -.015, hp: 100, hitCooldown: 0, recoil: 0 };
+      this.player = { x: 0, z: 15.6, y: 1.65, feet: 0, vy: 0, grounded: true, yaw: 0, pitch: -.015, hp: 100, hitCooldown: 0, recoil: 0 };
       this.primary = ['m4', 'ak', 'awm'].includes(options.primary) ? options.primary : 'm4'; this.optic = OPTICS[options.optic] ? options.optic : 'red'; this.aiming = false;
       this.weapon = 'rifle'; this.ammo = { rifle: WEAPONS[this.primary].mag, pistol: 12 }; this.reserve = WEAPONS[this.primary].reserve; this.reloadTime = 0; this.reloadDuration = 0; this.fireCooldown = 0; this.grenades = 2; this.grenadeCooldown = 0;
       this.enemies = []; this.projectiles = []; this.nextId = 1; this.events = []; this.queue = []; this.spawnTimer = 0;
@@ -112,10 +112,30 @@
       const w = this.weaponInfo; if (this.reloadTime > 0 || this.ammo[this.weapon] >= w.mag || (this.weapon === 'rifle' && this.reserve <= 0) || this.frozen) return false;
       this.reloadDuration = w.reload * (this.perk === 'reload' ? .65 : 1); this.reloadTime = this.reloadDuration; this.event('reload', { duration: this.reloadDuration, weapon: this.weapon }); return true;
     }
-    isBlocked(x, z, radius = .32) { return Math.abs(x) > 17.35 - radius || Math.abs(z) > 21.35 - radius || this.obstacles.some(o => x > o.x1 - radius && x < o.x2 + radius && z > o.z1 - radius && z < o.z2 + radius); }
+    jump() {
+      if (this.frozen || !this.player.grounded) return false;
+      this.player.vy = 4.8; this.player.grounded = false; this.event('jump'); return true;
+    }
+    supportHeight(x, z, feet) {
+      let floor = 0;
+      for (const o of this.obstacles) if (x > o.x1 - .30 && x < o.x2 + .30 && z > o.z1 - .30 && z < o.z2 + .30 && o.height <= feet + .035) floor = Math.max(floor, o.height);
+      return floor;
+    }
+    updateJump(dt) {
+      const p = this.player, support = this.supportHeight(p.x, p.z, p.feet);
+      if (p.grounded && p.feet > support + .035) p.grounded = false;
+      if (!p.grounded) {
+        const before = p.feet; p.vy -= 13 * dt; p.feet += p.vy * dt;
+        const landing = this.supportHeight(p.x, p.z, before);
+        if (p.vy <= 0 && p.feet <= landing) { p.feet = landing; p.vy = 0; p.grounded = true; this.event('land'); }
+      }
+      p.y = 1.65 + p.feet;
+    }
+    isBlocked(x, z, radius = .32, feet = 0) { return Math.abs(x) > 17.35 - radius || Math.abs(z) > 21.35 - radius || this.obstacles.some(o => o.height > feet + .015 && x > o.x1 - radius && x < o.x2 + radius && z > o.z1 - radius && z < o.z2 + radius); }
     move(actor, dx, dz, radius = .32) {
-      if (!this.isBlocked(actor.x + dx, actor.z, radius)) actor.x += dx;
-      if (!this.isBlocked(actor.x, actor.z + dz, radius)) actor.z += dz;
+      const feet = actor === this.player ? actor.feet : 0;
+      if (!this.isBlocked(actor.x + dx, actor.z, radius, feet)) actor.x += dx;
+      if (!this.isBlocked(actor.x, actor.z + dz, radius, feet)) actor.z += dz;
     }
     wallDistance(origin, dir, range = 45) { let closest = range; for (const obstacle of this.obstacles) closest = Math.min(closest, rayBox(origin, dir, obstacle)); return closest; }
     lineClear(a, b, y = 1) { const dist = distance(a, b); if (dist < .01) return true; const dir = { x: (b.x - a.x) / dist, y: 0, z: (b.z - a.z) / dist }; return this.wallDistance({ x: a.x, y, z: a.z }, dir, dist + .01) >= dist - .05; }
@@ -161,7 +181,7 @@
       if (this.frozen || this.grenades <= 0 || this.grenadeCooldown > 0 || !['wave', 'evac', 'escape', 'tutorial', 'gateTravel', 'facilityTravel'].includes(this.stage)) return false;
       this.grenades--; this.stats.grenadesUsed++; this.grenadeCooldown = .65;
       const d = direction(this.player.yaw, clamp(this.player.pitch + .22, -.2, .65));
-      this.projectiles.push({ id: this.nextId++, x: this.player.x + d.x * .5, y: 1.35, z: this.player.z + d.z * .5, vx: d.x * 8.7, vy: Math.max(1.8, d.y * 8.7), vz: d.z * 8.7, timer: 1.4 }); this.event('throw'); return true;
+      this.projectiles.push({ id: this.nextId++, x: this.player.x + d.x * .5, y: this.player.y - .3, z: this.player.z + d.z * .5, vx: d.x * 8.7, vy: Math.max(1.8, d.y * 8.7), vz: d.z * 8.7, timer: 1.4 }); this.event('throw'); return true;
     }
     explode(p) {
       this.event('explosion', { x: p.x, y: .3, z: p.z, shock: this.perk === 'shock' });
@@ -219,6 +239,7 @@
     tick(dt, input) {
       this.time += dt; this.stageTime += dt; this.noticeTime = Math.max(0, this.noticeTime - dt); this.fireCooldown = Math.max(0, this.fireCooldown - dt); this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt); this.player.hitCooldown = Math.max(0, this.player.hitCooldown - dt); this.player.recoil = Math.max(0, this.player.recoil - dt * .5); this.gridFlash = Math.max(0, this.gridFlash - dt);
       this.aiming = !!input.aim;
+      this.updateJump(dt);
       const dx = clamp(Number(input.x) || 0, -1, 1), forward = clamp(Number(input.forward) || 0, -1, 1), length = Math.max(1, Math.hypot(dx, forward)), speed = 3.8 * dt;
       const sin = Math.sin(this.player.yaw), cos = Math.cos(this.player.yaw);
       this.move(this.player, (dx * cos - forward * sin) / length * speed, (-forward * cos - dx * sin) / length * speed);
@@ -258,7 +279,7 @@
       }
       if (this.frozen) return;
       this.updateFacility(dt);
-      for (const p of this.projectiles) { p.timer -= dt; p.vy -= 9.8 * dt; const nx = p.x + p.vx * dt, nz = p.z + p.vz * dt; if (this.isBlocked(nx, nz, .08)) { p.vx *= -.3; p.vz *= -.3; } else { p.x = nx; p.z = nz; } p.y += p.vy * dt; if (p.y < .13) { p.y = .13; p.vy = Math.abs(p.vy) * .23; p.vx *= .8; p.vz *= .8; } if (p.timer <= 0) this.explode(p); }
+      for (const p of this.projectiles) { p.timer -= dt; p.vy -= 9.8 * dt; const nx = p.x + p.vx * dt, nz = p.z + p.vz * dt; if (this.isBlocked(nx, nz, .08, p.y - .1)) { p.vx *= -.3; p.vz *= -.3; } else { p.x = nx; p.z = nz; } p.y += p.vy * dt; if (p.y < .13) { p.y = .13; p.vy = Math.abs(p.vy) * .23; p.vx *= .8; p.vz *= .8; } if (p.timer <= 0) this.explode(p); }
       this.projectiles = this.projectiles.filter(p => p.timer > 0); this.enemies = this.enemies.filter(e => !e.dead);
       if (this.stage === 'wave' && this.queue.length === 0 && this.enemies.length === 0) { if (this.wave === 1) { this.setStage('facilityTravel'); this.notify('第一波已清空 · 前往标记的配电箱'); } else if (this.wave === 2) { this.setStage('perkChoice'); } else { this.setStage('gateTravel'); this.notify('三波清空 · 补给后前往北侧出口', 6); } }
       if (this.stage === 'escape' && Math.abs(this.player.x) < 2.6 && this.player.z < -19.7) this.finish(true);

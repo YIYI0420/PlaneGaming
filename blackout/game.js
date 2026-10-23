@@ -1,25 +1,30 @@
-import { World } from './scene.js';
+import { World } from './scene.js?v=2';
 const B = window.Blackout;
 const { Game, WEAPONS, OPTICS, OBSTACLES, GRID, TURRET, BOX, EXIT, PORTALS, clamp, direction, distance, formatTime } = B;
 const $ = id => document.getElementById(id);
 const touchQuery = matchMedia('(pointer:coarse)');
-let touchMode = touchQuery.matches, options = { primary: 'm4', optic: 'red', quality: touchMode ? 'low' : 'standard', sound: true, auto: true };
+let touchMode = touchQuery.matches, options = { primary: 'm4', optic: 'red', quality: touchMode ? 'low' : 'high', renderRevision: 2, sound: true, auto: true };
 let storageAvailable = true;
 function read(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; } }
 function save(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) { storageAvailable = false; } }
 const stored = read('blackout-loadout-v1', {});
 if (['m4', 'ak', 'awm'].includes(stored.primary)) options.primary = stored.primary;
 if (OPTICS[stored.optic]) options.optic = stored.optic;
-if (['low', 'standard'].includes(stored.quality)) options.quality = stored.quality;
+if (stored.renderRevision === 2 && ['low', 'standard', 'high'].includes(stored.quality)) options.quality = stored.quality;
 for (const key of ['sound', 'auto']) if (typeof stored[key] === 'boolean') options[key] = stored[key];
 let history = read('blackout-results-v1', []); if (!Array.isArray(history)) history = [];
 history = history.filter(r => r && typeof r.won === 'boolean' && Number.isFinite(r.time) && r.time >= 0).slice(-50);
 document.body.classList.toggle('touch-mode', touchMode);
 window.bootProgress(65, '正在构建公交总站、武器和导航…');
 const view = new World($('world'), options.quality);
-let game = null, lastTimestamp = 0, menuTime = 0, hudTimer = 0, aimTimer = 0, lastStage = '', resultSaved = false, mouseDown = false, mouseAim = false, toggleAim = false, mouseDragging = false;
+let game = null, lastTimestamp = 0, menuTime = 0, hudTimer = 0, aimTimer = 0, lastStage = '', resultSaved = false, manualFire = false, toggleAim = false;
 let joystickPointer = null, joystickInput = { x: 0, forward: 0 }, lookPointer = null, lastLook = { x: 0, y: 0 }, lastLocked = false, hitFlash = 0, hurtFlash = 0;
 let portrait = innerHeight > innerWidth;
+const mouse = new window.BlackoutControls.MouseControls($('world'), document, {
+  enabled: () => !!game && !game.frozen,
+  engage: () => requestPointer(),
+  look: (dx, dy) => { const sensitivity = .0024 / (mouse.aim || toggleAim ? (game.weapon === 'rifle' ? OPTICS[game.optic].zoom : 1.25) : 1); game.look(-dx * sensitivity, -dy * sensitivity); }
+});
 const keys = new Set();
 const weaponDescriptions = { m4: '低后坐、稳定连射，适合持续火力和第一次进入总站的幸存者。', ak: '单发伤害更高，后坐更强；瞄准头部能迅速压制普通目标。', awm: '五发弹匣与栓动间隔，用高伤害精确点杀；近身时记得切换手枪。' };
 const facilityNames = { grid: '通道电网', turret: '自动炮台' }, perkNames = { pierce: '穿透弹', reload: '快速装填', shock: '电击手雷' };
@@ -50,6 +55,8 @@ class SoundSystem {
       if (e.type === 'shoot') { const kind = e.weapon === 'pistol' ? 'pistol' : game.primary; this.noiseBurst(kind === 'awm' ? .25 : kind === 'ak' ? .13 : .075, kind === 'awm' ? 1700 : 3200, kind === 'awm' ? .65 : .38); this.tone(kind === 'awm' ? 80 : kind === 'ak' ? 130 : 180, kind === 'awm' ? .28 : .1, .14, 'triangle', 35); }
       if (e.type === 'hit') { this.tone(e.head ? 1020 : e.armor ? 1800 : 640, .045, .07, 'triangle', e.head ? 1600 : 400); hitFlash = .15; $('hit-marker').className = 'hit-marker' + (e.head ? ' head' : e.armor ? ' armor' : ''); }
       if (e.type === 'hurt') { this.noiseBurst(.16, 600, .2); this.tone(95, .2, .1, 'sine', 45); hurtFlash = .7; }
+      if (e.type === 'jump') this.noiseBurst(.10, 500, .05);
+      if (e.type === 'land') this.noiseBurst(.11, 350, .09);
       if (e.type === 'reload') { this.noiseBurst(.1, 2500, .08); this.tone(160, .05, .04, 'square'); }
       if (e.type === 'reloaded' || e.type === 'switch') this.tone(330, .06, .05, 'triangle', 500);
       if (e.type === 'pickup') this.tone(500, .16, .09, 'sine', 880);
@@ -66,12 +73,12 @@ const sound = new SoundSystem();
 function updateMenu() {
   document.querySelectorAll('[data-weapon]').forEach(b => { const selected = b.dataset.weapon === options.primary; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
   document.querySelectorAll('[data-optic]').forEach(b => { const selected = b.dataset.optic === options.optic; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
-  $('weapon-description').textContent = weaponDescriptions[options.primary]; $('quality-setting').value = options.quality; $('sound-setting').checked = options.sound; $('auto-setting').checked = options.auto;
+  $('weapon-description').textContent = weaponDescriptions[options.primary]; $('quality-setting').value = options.quality; $('pause-quality').value = options.quality; $('sound-setting').checked = options.sound; $('auto-setting').checked = options.auto;
   const wins = history.filter(r => r.won), best = wins.length ? Math.min(...wins.map(r => r.time)) : null;
   $('career-label').textContent = !storageAvailable ? '浏览器存储不可用，本次仍可游玩。' : wins.length ? `${wins.length} 次成功撤离 / 最佳 ${formatTime(best)}` : '准备好，活着回来。';
 }
 function saveOptions() { save('blackout-loadout-v1', options); }
-function clearInput() { keys.clear(); mouseDown = false; mouseAim = false; toggleAim = false; mouseDragging = false; lookPointer = null; joystickPointer = null; joystickInput = { x: 0, forward: 0 }; $('joystick-knob').style.transform = ''; }
+function clearInput() { keys.clear(); manualFire = false; mouse.reset(); toggleAim = false; lookPointer = null; joystickPointer = null; joystickInput = { x: 0, forward: 0 }; $('joystick-knob').style.transform = ''; }
 function releasePointer() { if (document.pointerLockElement) document.exitPointerLock(); }
 function requestPointer() {
   if (touchMode || !game || game.frozen) return;
@@ -80,7 +87,7 @@ function requestPointer() {
 function start() {
   clearInput(); sound.unlock(); view.reset(); view.setQuality(options.quality); game = new Game({ primary: options.primary, optic: options.optic, seed: Date.now() % 2147483647 });
   lastStage = ''; resultSaved = false; hitFlash = hurtFlash = 0; hudTimer = 1; $('menu').hidden = true; $('hud').hidden = false; $('pause-overlay').hidden = true; $('result-overlay').hidden = true; $('selection-overlay').hidden = true;
-  $('tutorial-copy').textContent = touchMode ? '左摇杆移动 · 右侧滑动转向 · 对准敌人自动开火 · 点击开镜按钮' : 'WASD 移动 · 鼠标转向 · 左键开火 · 右键或 Q 开镜';
+  $('tutorial-copy').textContent = touchMode ? '左摇杆移动 · 右侧转向 · 对准敌人自动开火 · ↑ 跳跃' : 'WASD 移动 · 空格跳跃 · 左键开火 · 右键或 Q 开镜';
   requestPointer(); syncStage(); updateHUD();
 }
 function pause(reason = '游戏已暂停，准备好了再继续。') {
@@ -163,7 +170,7 @@ function drawRadar() {
 }
 const TAU = Math.PI * 2;
 function inputs() {
-  return { x: joystickInput.x + Number(keys.has('d')) - Number(keys.has('a')), forward: joystickInput.forward + Number(keys.has('w')) - Number(keys.has('s')), turn: Number(keys.has('arrowleft')) - Number(keys.has('arrowright')), fire: mouseDown, autoFire: touchMode && options.auto, aim: mouseAim || toggleAim };
+  return { x: joystickInput.x + Number(keys.has('d')) - Number(keys.has('a')), forward: joystickInput.forward + Number(keys.has('w')) - Number(keys.has('s')), turn: Number(keys.has('arrowleft')) - Number(keys.has('arrowright')), fire: mouse.fire || manualFire, autoFire: touchMode && options.auto, aim: mouse.aim || toggleAim };
 }
 function frame(timestamp) {
   const dt = Math.min((timestamp - (lastTimestamp || timestamp)) / 1000, .05); lastTimestamp = timestamp;
@@ -178,7 +185,7 @@ function frame(timestamp) {
 document.querySelectorAll('[data-weapon]').forEach(b => b.addEventListener('click', () => { options.primary = b.dataset.weapon; saveOptions(); updateMenu(); }));
 document.querySelectorAll('[data-optic]').forEach(b => b.addEventListener('click', () => setOptic(b.dataset.optic)));
 document.querySelectorAll('[data-pause-optic]').forEach(b => b.addEventListener('click', () => setOptic(b.dataset.pauseOptic)));
-$('quality-setting').addEventListener('change', e => { options.quality = e.target.value; saveOptions(); view.setQuality(options.quality); });
+for (const id of ['quality-setting', 'pause-quality']) $(id).addEventListener('change', e => { options.quality = e.target.value; saveOptions(); view.setQuality(options.quality); updateMenu(); });
 $('sound-setting').addEventListener('change', e => { options.sound = e.target.checked; sound.unlock(); sound.setMuted(); saveOptions(); });
 $('auto-setting').addEventListener('change', e => { options.auto = e.target.checked; saveOptions(); });
 $('start-button').addEventListener('click', start); $('pause-button').addEventListener('click', () => pause()); $('resume-button').addEventListener('click', resume);
@@ -187,34 +194,25 @@ $('skip-tutorial').addEventListener('click', () => { game?.skipTutorial(); reque
 $('guide-button').addEventListener('click', () => $('guide-dialog').showModal()); $('close-guide').addEventListener('click', () => $('guide-dialog').close());
 $('hud-sound').addEventListener('click', () => { options.sound = !options.sound; sound.unlock(); sound.setMuted(); saveOptions(); });
 $('reload-button').addEventListener('click', () => game?.reload()); $('grenade-button').addEventListener('click', () => game?.throwGrenade()); $('switch-button').addEventListener('click', switchGun);
+$('jump-button').addEventListener('click', () => game?.jump());
 $('aim-button').addEventListener('click', () => { if (game && !game.frozen) toggleAim = !toggleAim; });
 $('interact-button').addEventListener('click', () => game?.interact());
 $('cycle-optic').addEventListener('click', () => { if (game?.weapon === 'rifle') { const values = ['red', 'x4', 'x8']; setOptic(values[(values.indexOf(game.optic) + 1) % 3]); } });
 document.addEventListener('keydown', event => {
-  const key = event.key.toLowerCase(); if (!game || !['w', 'a', 's', 'd', 'q', 'r', 'e', 'g', '1', '2', 'p', 'escape', 'arrowleft', 'arrowright'].includes(key)) return; event.preventDefault();
+  if (event.target.closest?.('input,select,textarea')) return;
+  const key = event.key.toLowerCase(); if (!game || !['w', 'a', 's', 'd', ' ', 'q', 'r', 'e', 'g', '1', '2', 'p', 'escape', 'arrowleft', 'arrowright'].includes(key)) return; event.preventDefault();
   if (event.repeat) return;
   if (key === 'p') { if (game.paused) resume(); else pause(); return; }
   if (key === 'escape') { pause(); return; }
   if (game.frozen) return;
+  if (key === ' ') game.jump();
   if (key === 'q') toggleAim = !toggleAim;
   if (key === 'r') game.reload(); if (key === 'g') game.throwGrenade(); if (key === 'e') game.interact(); if (key === '1') game.switchWeapon('rifle'); if (key === '2') game.switchWeapon('pistol'); keys.add(key);
 });
 document.addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
-$('world').addEventListener('contextmenu', event => event.preventDefault());
-$('world').addEventListener('pointerdown', event => {
-  if (!game || game.frozen || event.pointerType === 'touch') return;
-  if (event.button === 0) mouseDown = true; if (event.button === 2) mouseAim = true; mouseDragging = true; lastLook = { x: event.clientX, y: event.clientY }; requestPointer();
-});
-document.addEventListener('pointerup', event => { if (event.pointerType !== 'mouse') return; if (event.button === 0) mouseDown = false; if (event.button === 2) mouseAim = false; mouseDragging = false; });
+$('fire-button').addEventListener('pointerdown', event => { if (!game || game.frozen) return; event.preventDefault(); manualFire = true; event.currentTarget.setPointerCapture(event.pointerId); });
+for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('fire-button').addEventListener(event, () => { manualFire = false; });
 
-$('fire-button').addEventListener('pointerdown', event => { if (!game || game.frozen) return; event.preventDefault(); mouseDown = true; event.currentTarget.setPointerCapture(event.pointerId); });
-for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('fire-button').addEventListener(event, () => { mouseDown = false; });
-document.addEventListener('mousemove', event => {
-  if (!game || game.frozen) return;
-  const locked = document.pointerLockElement === $('world'); if (!locked && !mouseDragging) return;
-  const dx = locked ? event.movementX : event.clientX - lastLook.x, dy = locked ? event.movementY : event.clientY - lastLook.y; lastLook = { x: event.clientX, y: event.clientY };
-  const sensitivity = .0024 / (mouseAim || toggleAim ? (game.weapon === 'rifle' ? OPTICS[game.optic].zoom : 1.25) : 1); game.look(-dx * sensitivity, -dy * sensitivity);
-});
 document.addEventListener('pointerlockchange', () => { const locked = document.pointerLockElement === $('world'); $('pointer-hint').hidden = locked || touchMode; if (lastLocked && !locked && game && !game.frozen) pause('鼠标已解锁，点击继续后重新进入战斗。'); lastLocked = locked; });
 function activateTouch() { if (!touchMode) { touchMode = true; document.body.classList.add('touch-mode'); } }
 $('joystick').addEventListener('pointerdown', event => { if (!game || game.frozen) return; event.preventDefault(); activateTouch(); joystickPointer = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); updateJoystick(event); });

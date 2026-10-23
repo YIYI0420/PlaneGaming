@@ -1,14 +1,16 @@
 import * as THREE from './vendor/three.module.min.js';
+import { applyWeaponPose, applyCameraPose, RED_SIGHT_CENTER, QUALITY } from './presentation.js';
+import { beveledBox, upgradeEnvironment, applyQuality } from './graphics.js';
 const B = window.Blackout;
 const { OBSTACLES, GRID, TURRET, BOX, PORTALS, ENEMIES, direction, clamp } = B;
 const TAU = Math.PI * 2;
 const geometries = {
-  box: new THREE.BoxGeometry(1, 1, 1), cylinder: new THREE.CylinderGeometry(1, 1, 1, 8), sphere: new THREE.IcosahedronGeometry(1, 1), cone: new THREE.ConeGeometry(1, 1, 8), plane: new THREE.PlaneGeometry(1, 1),
+  box: new THREE.BoxGeometry(1, 1, 1), bevel: beveledBox(), cylinder: new THREE.CylinderGeometry(1, 1, 1, 16), sphere: new THREE.IcosahedronGeometry(1, 2), cone: new THREE.ConeGeometry(1, 1, 8), plane: new THREE.PlaneGeometry(1, 1),
 };
 const materials = new Map();
 function material(color, basic = false) {
   const key = color + '/' + basic;
-  if (!materials.has(key)) materials.set(key, basic ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshLambertMaterial({ color, flatShading: true }));
+  if (!materials.has(key)) materials.set(key, basic ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshStandardMaterial({ color, roughness: ['#193c49','#214852','#234852'].includes(color) ? .14 : .64, metalness: ['#193c49','#214852','#234852'].includes(color) ? .65 : .18, envMapIntensity:1.15 }));
   return materials.get(key);
 }
 function part(parent, shape, size, position, color, rotation = [0, 0, 0], basic = false) {
@@ -17,15 +19,15 @@ function part(parent, shape, size, position, color, rotation = [0, 0, 0], basic 
 export class World {
   constructor(canvas, quality = 'low') {
     this.canvas = canvas;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.35;
-    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color('#17282e'); this.scene.fog = new THREE.Fog('#273a40', 26, 65);
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.12;
+    this.scene = new THREE.Scene(); this.scene.background = new THREE.Color('#243541'); this.scene.fog = new THREE.Fog('#49534f', 28, 78);
     this.camera = new THREE.PerspectiveCamera(78, 1, .055, 100); this.camera.rotation.order = 'YXZ'; this.scene.add(this.camera);
-    this.scene.add(new THREE.HemisphereLight('#c5e3df', '#555943', 2.05));
-    const sun = new THREE.DirectionalLight('#f5d2a1', 2.4); sun.position.set(-13, 24, 9); this.scene.add(sun);
+    this.scene.add(new THREE.HemisphereLight('#b5d3ed', '#626452', 1.15));
+    const sun = this.sun = new THREE.DirectionalLight('#ffcf92', 3.1); sun.position.set(-13, 24, 9); this.scene.add(sun); sun.shadow.camera.left=-29;sun.shadow.camera.right=29;sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;sun.shadow.camera.near=.5;sun.shadow.camera.far=75;sun.shadow.bias=-.00025;sun.shadow.normalBias=.035;
     this.batches = new Map(); this.actors = new Map(); this.corpses = []; this.pickupModels = []; this.grenadeModels = new Map(); this.effects = []; this.tracers = [];
     this.lastWeapon = ''; this.lastOptic = ''; this.fov = 78; this.clock = 0; this.isMenu = true; this.quality = quality;
-    this.buildDepot(); this.flushBatches(); this.buildFacilities(); this.buildWeapons(); this.buildParticles(); this.resize();
+    this.buildDepot(); this.flushBatches(); this.buildFacilities(); this.buildWeapons(); this.buildParticles(); upgradeEnvironment(this); for(const [key,m]of materials)if(['#596865','#667672','#879289','#465b5b','#465f5b'].some(c=>key===c+'/false')){m.map=this.textures.concrete;m.roughness=.94;} applyQuality(this, quality);
     this.camera.position.set(19, 13, 22); this.camera.lookAt(0, .8, -3); this.renderer.compile(this.scene, this.camera);
   }
   staticPart(shape, size, position, color, rotation = [0, 0, 0], basic = false) {
@@ -98,6 +100,15 @@ export class World {
     add('box', [width - .35, .95, .05], [0, 2.05, -length / 2 - .015], '#214852'); add('box', [width - .35, .75, .05], [0, 2.08, length / 2 + .01], '#234852');
     for (const side of [-1, 1]) { add('box', [.6, .17, .055], [side * .98, .96, -length / 2 - .02], '#e6cf96', [0, 0, 0], true); add('box', [.3, .14, .055], [side * 1.1, .9, length / 2 + .02], '#9c5145', [0, 0, 0], true); }
     add('box', [1.2, .16, 1.8], [0, 2.95, 0], '#6d8380');
+    add('box',[width+.07,.16,.13],[0,.5,-length/2-.08],'#283d42');
+    for(let i=0;i<5;i++)add('box',[.9,.035,.025],[0,.72+i*.07,-length/2-.045],'#30464a');
+    for(const side of [-1,1]){
+      add('box',[.035,.48,.68],[side*width*.505,.94,-length*.27],'#4b6260');
+      for(let i=0;i<6;i++)add('box',[.048,.025,.57],[side*width*.51,.75+i*.065,length*.31],'#314d4e');
+      add('box',[.055,1.45,.055],[side*width*.51,1.65,-length*.12],'#a5b5aa');
+      add('box',[.055,1.45,.055],[side*width*.51,1.65,-length*.02],'#a5b5aa');
+    }
+    for(const side of [-1,1])add('box',[.025,.46,.025],[side*.67,1.92,-length/2-.05],'#728b85',[0,0,side*.35]);
     if (!horizontal) this.sign(`0${index + 1} / 暂停运营`, x, 2.57, z - length / 2 - .06, width * .7, .28, '#d1b879', '#18343b', Math.PI);
   }
   buildFacilities() {
@@ -128,8 +139,11 @@ export class World {
     }
   }
   buildWeapons() {
-    this.viewRoot = new THREE.Group(); this.camera.add(this.viewRoot); this.guns = {};
-    const gunPart = (g, shape, size, position, color, rotation = [0, 0, 0]) => { const m = part(g, shape, size, position, color, rotation, true); m.material.depthTest = false; m.renderOrder = 20; return m; };
+    this.weaponScene = new THREE.Scene(); this.weaponCamera = new THREE.PerspectiveCamera(78,1,.035,6); this.weaponScene.add(this.weaponCamera);
+    this.weaponScene.add(new THREE.HemisphereLight('#c6d9ed','#4e5646',1.35)); const key=new THREE.DirectionalLight('#ffe0b5',3.0); key.position.set(-3,5,2); this.weaponScene.add(key);
+    this.viewRoot = new THREE.Group(); this.weaponCamera.add(this.viewRoot); this.guns = {}; this.weaponMaterials=new Map();
+    this.weaponMaterial = color => {if(!this.weaponMaterials.has(color))this.weaponMaterials.set(color,new THREE.MeshStandardMaterial({color,roughness:color==='#9a6747'?.8:.44,metalness:color==='#9a6747'?.03:.55}));return this.weaponMaterials.get(color);};
+    const gunPart = (g, shape, size, position, color, rotation = [0, 0, 0]) => { const m = part(g, shape === 'box' ? 'bevel' : shape, size, position, this.weaponMaterial(color), rotation); return m; };
     for (const kind of ['m4', 'ak', 'awm', 'pistol']) {
       const group = new THREE.Group(); group.visible = false; this.viewRoot.add(group); this.guns[kind] = group;
       const color = kind === 'awm' ? '#526958' : '#253a3e', wood = kind === 'ak' ? '#9a6747' : color;
@@ -148,6 +162,15 @@ export class World {
       gunPart(group, 'box', [.09, .09, .12], [.01, -.085, .135], '#738779', [.2, 0, -.15]);
       gunPart(group, 'box', [.09, .08, .30], [.04, -.13, .29], '#455b58', [-.15, 0, -.10]);
       if (kind !== 'pistol') { gunPart(group, 'box', [.095, .07, .16], [-.015, -.07, -.27], '#6d8070', [0, 0, .25]); gunPart(group, 'box', [.085, .08, .35], [.055, -.14, -.12], '#485e58', [.25, -.2, .2]); }
+      if(kind!=='pistol'){
+        for(let j=0;j<7;j++){gunPart(group,'box',[.112,.012,.014],[0,.062,-.34+j*.045],'#7d8986');gunPart(group,'box',[.003,.012,.07],[.035,-.10-j*.012,-.02],'#1c2b30');}
+        for(const z of [-.12,.10])gunPart(group,'cylinder',[.008,.005,.008],[.063,.005,z],'#a2aca6',[0,0,Math.PI/2]);
+        gunPart(group,'box',[.028,.06,.018],[-.042,-.09,.06],'#1c2b30');gunPart(group,'box',[.075,.015,.10],[0,-.125,.06],'#263636');
+        gunPart(group,'box',[.09,.10,.035],[0,-.01,.345],'#18282b');
+        gunPart(group,'cylinder',[.030,.055,.030],[0,.025,barrelZ-barrelLength*.5],'#25383a',[Math.PI/2,0,0]);
+        if(kind==='ak')gunPart(group,'cylinder',[.014,.26,.014],[0,.065,-.32],'#62746f',[Math.PI/2,0,0]);
+        if(kind==='awm')for(const side of [-1,1])gunPart(group,'cylinder',[.009,.28,.009],[side*.055,-.065,-.49],'#374c4b',[Math.PI/2,.2*side,0]);
+      }
       group.userData.muzzleZ = barrelZ - barrelLength * .5 - .035;
       const flashMat = new THREE.MeshBasicMaterial({ color: '#ffd48f', transparent: true, opacity: 0, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
       const flash = part(group, 'sphere', [.065, .065, .1], [0, .025, group.userData.muzzleZ], flashMat); flash.renderOrder = 30; group.userData.flash = flash;
@@ -156,12 +179,13 @@ export class World {
     this.viewRoot.position.set(.31, -.27, -.57);
   }
   mountOptic(optic, kind) {
-    while (this.opticMount.children.length) this.opticMount.remove(this.opticMount.children[0]);
+    while (this.opticMount.children.length) { const child=this.opticMount.children[0];if(child.userData.ownMaterial)child.material.dispose();this.opticMount.remove(child); }
     if (kind === 'pistol') { this.opticMount.visible = false; return; } this.opticMount.visible = true;
-    const add = (...args) => { const m = part(this.opticMount, ...args); m.material.depthTest = false; m.renderOrder = 22; return m; };
+    const add = (shape,size,pos,color,rotation=[0,0,0]) => part(this.opticMount,shape==='box'?'bevel':shape,size,pos,this.weaponMaterial(color),rotation);
     if (optic === 'red') {
       add('box', [.10, .06, .10], [0, .08, .02], '#586f65', [0, 0, 0], true);
       add('box', [.025, .12, .065], [-.056, .16, .02], '#283d42', [0, 0, 0], true); add('box', [.025, .12, .065], [.056, .16, .02], '#283d42', [0, 0, 0], true); add('box', [.13, .02, .065], [0, .22, .02], '#283d42', [0, 0, 0], true);
+      const glass = new THREE.Mesh(geometries.plane,new THREE.MeshPhysicalMaterial({color:'#91d3ba',metalness:.1,roughness:.12,transparent:true,opacity:.12,depthWrite:false,side:THREE.DoubleSide}));glass.scale.set(.093,.102,1);glass.position.copy(RED_SIGHT_CENTER);glass.position.z+=.035;glass.userData.ownMaterial=true;this.opticMount.add(glass);
     } else {
       add('box', [.07, .10, .13], [0, .11, .01], '#445c55', [0, 0, 0], true);
       add('cylinder', [optic === 'x8' ? .062 : .05, optic === 'x8' ? .36 : .26, optic === 'x8' ? .062 : .05], [0, .19, -.005], '#243b42', [Math.PI / 2, 0, 0], true);
@@ -178,17 +202,18 @@ export class World {
   spawnActor(enemy) {
     const group = new THREE.Group(), kind = enemy.kind, info = ENEMIES[kind], heightScale = info.height / 1.8;
     const bodyColor = kind === 'walker' ? '#7a8c6a' : kind === 'runner' ? '#a8684e' : '#536b72';
-    const bodyMat = new THREE.MeshLambertMaterial({ color: bodyColor, flatShading: true }), skinMat = new THREE.MeshLambertMaterial({ color: kind === 'runner' ? '#a9ac8b' : '#a8b48f', flatShading: true });
-    const torso = part(group, 'box', [kind === 'armor' ? .67 : .49, .64, .35], [0, 1.08 * heightScale, 0], bodyMat); torso.rotation.x = kind === 'runner' ? .18 : -.04;
+    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, map:this.textures.fabric, roughness:.94 }), skinMat = new THREE.MeshStandardMaterial({ color: kind === 'runner' ? '#a9ac8b' : '#a8b48f', roughness:.8 });
+    const torso = part(group, 'bevel', [kind === 'armor' ? .67 : .49, .64, .35], [0, 1.08 * heightScale, 0], bodyMat); torso.rotation.x = kind === 'runner' ? .18 : -.04;
     part(group, 'box', [.38, .20, .28], [0, .68 * heightScale, 0], '#45534c');
     const head = part(group, 'sphere', [kind === 'armor' ? .245 : .215, .235, .205], [0, info.height - .2, kind === 'runner' ? .11 : 0], skinMat);
     for (const side of [-1, 1]) { const eye = part(head, 'sphere', [.13, .075, .06], [side * .37, .12, .85], kind === 'runner' ? '#ffbd72' : '#dce896', [0, 0, 0], true); eye.userData.eye = true; }
     const limbs = [];
     for (const side of [-1, 1]) {
-      const leg = new THREE.Group(); leg.position.set(side * .14, .69 * heightScale, 0); group.add(leg); part(leg, 'box', [.17, .59 * heightScale, .20], [0, -.28 * heightScale, 0], '#354d4a'); part(leg, 'box', [.20, .11, .33], [0, -.58 * heightScale, .07], '#263d3c'); limbs.push(leg);
-      const arm = new THREE.Group(); arm.position.set(side * (kind === 'armor' ? .41 : .32), 1.35 * heightScale, 0); group.add(arm); part(arm, 'box', [.14, .48 * heightScale, .16], [0, -.20 * heightScale, 0], bodyMat); part(arm, 'box', [.14, .21 * heightScale, .16], [0, -.50 * heightScale, .01], skinMat); limbs.push(arm);
+      const leg = new THREE.Group(); leg.position.set(side * .14, .69 * heightScale, 0); group.add(leg); part(leg, 'bevel', [.17, .59 * heightScale, .20], [0, -.28 * heightScale, 0], '#354d4a'); part(leg, 'box', [.20, .11, .33], [0, -.58 * heightScale, .07], '#263d3c'); limbs.push(leg);
+      const arm = new THREE.Group(); arm.position.set(side * (kind === 'armor' ? .41 : .32), 1.35 * heightScale, 0); group.add(arm); part(arm, 'bevel', [.14, .48 * heightScale, .16], [0, -.20 * heightScale, 0], bodyMat); part(arm, 'box', [.14, .21 * heightScale, .16], [0, -.50 * heightScale, .01], skinMat); limbs.push(arm);
     }
     if (kind === 'armor') { part(group, 'box', [.70, .66, .1], [0, 1.12, .25], '#2e414c'); for (let i = 0; i < 3; i++) part(group, 'box', [.61, .025, .025], [0, .94 + i * .18, .32], '#8a9e94'); part(group, 'box', [.18, .13, .04], [0, 1.9, .20], '#d8906c', [0, 0, 0], true); }
+    group.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
     this.scene.add(group); const actor = { group, limbs, head, torso, bodyMat, skinMat, bodyColor, kind, dying: false, age: 0 }; this.actors.set(enemy.id, actor); return actor;
   }
   burst(x, y, z, color, count = 10, speed = 2) {
@@ -197,7 +222,7 @@ export class World {
   handleEvents(events) {
     for (const event of events) {
       if (event.type === 'hit') this.burst(event.point.x, event.point.y, event.point.z, event.armor ? '#b4dbe6' : event.head ? '#e9c28c' : '#a9af8b', 6, 1.4);
-      if (event.type === 'shoot') { const gun = this.guns[this.currentGun]; if (gun) gun.userData.flash.material.opacity = .95; this.tracers.push({ from: [event.origin.x + .14, event.origin.y - .15, event.origin.z], to: [event.point.x, event.point.y, event.point.z], life: .06 }); }
+      if (event.type === 'shoot') { const gun = this.guns[this.currentGun]; if (gun) gun.userData.flash.material.opacity = .95; this.tracers.push({ from: [event.origin.x+event.dir.x*.3, event.origin.y+event.dir.y*.3, event.origin.z+event.dir.z*.3], to: [event.point.x, event.point.y, event.point.z], life: .06 }); }
       if (event.type === 'turretshot') { this.tracers.push({ from: [TURRET.x, 1.25, TURRET.z - 1], to: [event.x, event.y, event.z], life: .10 }); this.turretHead.rotation.y = Math.atan2(-(event.x - TURRET.x), -(event.z - TURRET.z)); this.burst(TURRET.x, 1.2, TURRET.z - 1.15, '#f9d694', 3, .5); }
       if (event.type === 'explosion') this.burst(event.x, event.y, event.z, event.shock ? '#95e7eb' : '#ffbb6d', 50, 7);
       if (event.type === 'death') { const actor = this.actors.get(event.id); if (actor) { actor.dying = true; actor.age = 0; this.corpses.push(event.id); this.burst(event.x, .85, event.z, '#81977d', 7, 1.6); } }
@@ -206,23 +231,18 @@ export class World {
   }
   removeActor(id) { const actor = this.actors.get(id); if (!actor) return; this.scene.remove(actor.group); actor.bodyMat.dispose(); actor.skinMat.dispose(); this.actors.delete(id); }
   reset() { for (const id of [...this.actors.keys()]) this.removeActor(id); this.corpses = []; this.effects = []; this.tracers = []; for (const obj of this.grenadeModels.values()) this.scene.remove(obj); this.grenadeModels.clear(); this.gate.position.y = 0; this.lastWeapon = ''; this.lastOptic = ''; this.fov = 78; }
-  setQuality(value) { this.quality = value; this.resize(); }
-  resize() { const w = window.innerWidth, h = window.innerHeight; this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.quality === 'low' ? 1 : 1.45)); this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
+  setQuality(value) { applyQuality(this,value); }
+  resize() { const w = window.innerWidth, h = window.innerHeight; const p=QUALITY[this.quality]||QUALITY.standard;this.renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1,p.minimum),p.ratio)); this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.weaponCamera.aspect=w/h;this.weaponCamera.updateProjectionMatrix(); }
   render(game, dt, menuTime = 0) {
     const now = game ? game.time : menuTime; this.clock = now;
-    if (!game) { this.viewRoot.visible = false; this.camera.fov = 65; this.camera.position.set(19 + Math.sin(menuTime * .08) * 1.5, 12.8, 23); this.camera.lookAt(-1, .8, -3); this.camera.updateProjectionMatrix(); this.renderer.render(this.scene, this.camera); return; }
+    if (!game) { this.viewRoot.visible = false; this.camera.fov = 65; this.camera.position.set(19 + Math.sin(menuTime * .08) * 1.5, 12.8, 23); this.camera.lookAt(-1, .8, -3); this.camera.updateProjectionMatrix(); this.sky.position.copy(this.camera.position);this.renderer.render(this.scene, this.camera); return; }
     this.viewRoot.visible = true;
-    this.camera.position.set(game.player.x, game.player.y + Math.sin(now * 8) * .008, game.player.z);
-    this.camera.rotation.set(game.player.pitch + game.player.recoil * .09, game.player.yaw, 0, 'YXZ');
+    applyCameraPose(this.camera,game.player);
     const targetFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(78 / 2)) / game.zoom));
-    this.fov += (targetFov - this.fov) * Math.min(1, dt * 13); this.camera.fov = this.fov; this.camera.updateProjectionMatrix();
+    this.fov += (targetFov - this.fov) * Math.min(1, dt * 13); this.camera.fov = this.fov; this.camera.updateProjectionMatrix(); this.weaponCamera.fov=this.fov;this.weaponCamera.updateProjectionMatrix();
     const gun = game.weapon === 'pistol' ? 'pistol' : game.primary;
     if (gun !== this.currentGun || this.lastOptic !== game.optic) { Object.entries(this.guns).forEach(([kind, model]) => { model.visible = kind === gun; }); this.currentGun = gun; this.lastOptic = game.optic; this.mountOptic(game.optic, gun); }
-    const reload = game.reloadTime > 0 ? Math.sin((1 - game.reloadTime / game.reloadDuration) * Math.PI) : 0;
-    const aiming = game.aiming ? 1 : 0;
-    this.viewRoot.position.set(.31 * (1 - aiming * .78), -.27 - reload * .26 + aiming * .045 + Math.sin(now * 7) * .002, -.57 + game.player.recoil * .65);
-    this.viewRoot.rotation.set(-reload * .16, .03 * reload, -.52 * reload);
-    this.viewRoot.visible = !(game.aiming && game.weapon === 'rifle' && game.optic !== 'red');
+    const reload = applyWeaponPose(this.viewRoot, game, now);
     for (const model of Object.values(this.guns)) { model.userData.flash.material.opacity = Math.max(0, model.userData.flash.material.opacity - dt * 15); if (model.userData.magazine) model.userData.magazine.position.y = (model === this.guns.awm ? -.08 : -.13) - reload * .12; }
     if (this.guns.awm.userData.bolt) this.guns.awm.userData.bolt.position.z = .03 + Math.max(0, Math.sin(game.fireCooldown / 1.12 * Math.PI * 2)) * .09;
     const alive = new Map(game.enemies.map(e => [e.id, e]));
@@ -253,5 +273,6 @@ export class World {
     this.particlePoints.geometry.setDrawRange(0, n); this.particlePoints.geometry.attributes.position.needsUpdate = true; this.particlePoints.geometry.attributes.color.needsUpdate = true;
     this.tracers = this.tracers.filter(t => t.life > 0).slice(-24); n = 0; for (const t of this.tracers) { t.life -= dt; this.tracePositions.set([...t.from, ...t.to], n++ * 6); } this.traceLines.geometry.setDrawRange(0, n * 2); this.traceLines.geometry.attributes.position.needsUpdate = true;
     this.renderer.render(this.scene, this.camera);
+    if(this.viewRoot.visible){this.renderer.autoClear=false;this.renderer.clearDepth();this.renderer.render(this.weaponScene,this.weaponCamera);this.renderer.autoClear=true;}
   }
 }

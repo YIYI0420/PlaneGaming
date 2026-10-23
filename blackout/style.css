@@ -10,3 +10,11 @@
 .action-buttons .fire-button{left:0;top:0;width:54px;height:54px;border-color:#f4ba7470;color:#f4ba74;background:#57433388}
 .screen-overlay>*{margin:auto}
 @media(max-height:440px) and (orientation:landscape){.menu-header{height:45px}.menu-content{padding-top:12px;padding-bottom:10px;min-height:calc(100svh - 65px)}.loadout-panel{padding:10px 14px}.panel-heading{margin-bottom:7px}.field-label{margin:7px 0 6px}.weapon-card svg{height:25px}.weapon-description{margin:6px 0 8px;line-height:1.6}.optic-options button{padding:5px 6px}.menu-settings{margin-top:8px;padding-top:8px}.start-button{margin-top:9px;padding:9px 13px}.menu-footer{margin-top:6px}.menu-bottom{padding-top:8px;padding-bottom:8px}}
+/* The centre reticle is a visual overlay; all mouse buttons must reach the game canvas. */
+.scope-overlay,.scope-overlay *,.reticle,.hit-marker,.hurt-overlay{pointer-events:none!important}
+.scope-overlay.red-optic .scope-lens{border:0!important;box-shadow:none!important;background:none!important;border-radius:0}
+.scope-overlay.red-optic .scope-dot{width:4px;height:4px;left:50%;top:50%;transform:translate(-50%,-50%);background:#ff4336;box-shadow:0 0 4px #ff5b43}
+.action-buttons .jump-button{width:48px;height:48px;left:72px;top:0;border-color:#b9d8c17a}
+.pause-quality{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 8px;color:#b8c8b4;font-size:10px}
+.pause-quality select{padding:7px;background:#1a2c31;border:1px solid #b8c8b44a;border-radius:3px;color:#ece8d7;max-width:210px}
+.menu-settings{flex-wrap:wrap}

@@ -29,3 +29,5 @@
 @media(max-width:650px) and (orientation:portrait){.melee-options{gap:5px}.melee-options svg{height:21px;width:33px}.melee-options strong{font-size:8px}.melee-options small{font-size:6px}.melee-description{font-size:7px}.touch-mode .sprint-button{left:132px;bottom:75px;width:45px;height:45px}.touch-mode .health-module{bottom:163px}.boss-hud{top:167px;width:68vw;left:17px;transform:none}.boss-hud>div:first-child,.boss-hud b{font-size:8px}.boss-hud p{font-size:8px;text-align:left}.boss-health-track{height:4px}.touch-mode .notice{top:37%}.touch-mode .tutorial-hint{top:39%}}
 
 .boss-active .notice{top:29%}@media(max-width:650px) and (orientation:portrait){.boss-active .notice{top:37%}}
+
+.boss-stagger-track{height:3px;background:#ffffff13;margin-top:4px}.boss-stagger-track i{display:block;height:100%;width:0;background:#e6c58b;transition:width .1s}.boss-hud.exposed .boss-health-track i{background:#9de1b3}.boss-hud.exposed #boss-title,.boss-hud.exposed #boss-warning{color:#a9ebc0}

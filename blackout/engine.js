@@ -13,12 +13,20 @@
   const OPTICS = { red: { name: '红点瞄准镜', short: '红点', zoom: 1.25 }, x4: { name: '四倍瞄准镜', short: '4×', zoom: 4 }, x8: { name: '八倍瞄准镜', short: '8×', zoom: 8 } };
   const MELEE = {
     combat: { name:'军用匕首',short:'军用匕首',damage:65,interval:.40,range:1.95,angle:38,cleave:1,backstab:1.4,armor:1,color:'#97b2b5',desc:'均衡 · 快速刺击',mag:Infinity,reload:0,recoil:0 },
-    karambit: { name:'爪刀',short:'爪刀',damage:48,interval:.27,range:1.65,angle:42,cleave:1,backstab:2.2,armor:1,color:'#d9aa78',desc:'极速 · 背刺强化',mag:Infinity,reload:0,recoil:0 },
+    karambit: { name:'爪刀',short:'爪刀',damage:48,interval:.29,range:1.65,angle:42,cleave:1,backstab:2.2,armor:1,color:'#d9aa78',desc:'极速 · 背刺强化',mag:Infinity,reload:0,recoil:0 },
     machete: { name:'开山刀',short:'开山刀',damage:95,interval:.68,range:2.3,angle:65,cleave:3,backstab:1.2,armor:1,color:'#91b68d',desc:'横扫 · 最多三目标',mag:Infinity,reload:0,recoil:0 },
     katana: { name:'武士刀',short:'武士刀',damage:115,interval:.82,range:2.8,angle:48,cleave:2,backstab:1.3,armor:1,color:'#b1b7d9',desc:'长距离 · 双目标',mag:Infinity,reload:0,recoil:0 },
     axe: { name:'战斧',short:'战斧',damage:165,interval:1.1,range:2.1,angle:44,cleave:1,backstab:1.2,armor:1.35,color:'#dd9273',desc:'重击 · 对护甲增伤',mag:Infinity,reload:0,recoil:0 }
   };
-  const ENEMIES = { walker: { hp: 85, speed: 1.4, damage: 8, height: 1.8, radius: .3, cooldown: 1.4 }, runner: { hp: 60, speed: 2.65, damage: 9, height: 1.48, radius: .26, cooldown: 1.05 }, armor: { hp: 220, speed: .9, damage: 16, height: 2.05, radius: .38, cooldown: 1.8 }, boss: { hp:2400,speed:1.25,damage:22,height:3.8,radius:.72,cooldown:1.7 } };
+  const MELEE_ATTACKS = {
+    combat:{light:{duration:.40,windup:.10,active:.10,damage:1,range:0,angle:38,cleave:1},heavy:{duration:.86,windup:.31,active:.14,damage:2.15,range:.25,angle:24,cleave:1}},
+    karambit:{light:{duration:.29,windup:.07,active:.08,damage:1,range:0,angle:42,cleave:1},heavy:{duration:.72,windup:.25,active:.13,damage:2.2,range:.12,angle:46,cleave:1}},
+    machete:{light:{duration:.68,windup:.18,active:.16,damage:1,range:0,angle:65,cleave:3},heavy:{duration:1.18,windup:.43,active:.20,damage:2.05,range:.18,angle:72,cleave:3}},
+    katana:{light:{duration:.82,windup:.21,active:.17,damage:1,range:0,angle:48,cleave:2},heavy:{duration:1.32,windup:.49,active:.18,damage:2.3,range:.35,angle:26,cleave:1}},
+    axe:{light:{duration:1.10,windup:.27,active:.20,damage:1,range:0,angle:44,cleave:1},heavy:{duration:1.52,windup:.60,active:.22,damage:2.3,range:.15,angle:40,cleave:2}}
+  };
+  const BOSS_RULES={hp:9600,guardBody:.40,guardHead:1,weakHead:2.4,transition:1.2};
+  const ENEMIES = { walker: { hp: 85, speed: 1.4, damage: 8, height: 1.8, radius: .3, cooldown: 1.4 }, runner: { hp: 60, speed: 2.65, damage: 9, height: 1.48, radius: .26, cooldown: 1.05 }, armor: { hp: 220, speed: .9, damage: 16, height: 2.05, radius: .38, cooldown: 1.8 }, boss: { hp:BOSS_RULES.hp,speed:1.55,damage:24,height:3.8,radius:.72,cooldown:1.5 } };
   const OBSTACLES = [
     { id: 'bus-west', x1: -9, x2: -5.5, z1: -9, z2: 4, height: 2.85 },
     { id: 'bus-east', x1: 5.2, x2: 8.7, z1: -5, z2: 8, height: 2.85 },
@@ -56,13 +64,13 @@
       this.seed = options.seed || 1937; this.stage = 'tutorial'; this.paused = false; this.time = 0; this.stageTime = 0; this.wave = 0; this.spawned = 0;
       this.player = { x: 0, z: 15.6, y: 1.65, feet: 0, vy: 0, grounded: true, yaw: 0, pitch: -.015, hp: 100, hitCooldown: 0, recoil: 0, stamina:100,sprinting:false,exhausted:false,recovery:0 };
       this.mode = options.mode === 'bossTraining' ? 'bossTraining' : 'campaign'; this.melee = Object.hasOwn(MELEE,options.melee) ? options.melee : 'combat';
-      this.meleeTime=0;this.bossDefeated=false;this.hazards=[];
+      this.meleeTime=0;this.meleeAction=null;this.meleeCombo=0;this.bossDefeated=false;this.hazards=[];
       this.primary = ['m4', 'ak', 'awm'].includes(options.primary) ? options.primary : 'm4'; this.optic = OPTICS[options.optic] ? options.optic : 'red'; this.aiming = false;
       this.weapon = 'rifle'; this.ammo = { rifle: WEAPONS[this.primary].mag, pistol: 12 }; this.reserve = WEAPONS[this.primary].reserve; this.reloadTime = 0; this.reloadDuration = 0; this.fireCooldown = 0; this.grenades = 2; this.grenadeCooldown = 0;
       this.enemies = []; this.projectiles = []; this.nextId = 1; this.events = []; this.queue = []; this.spawnTimer = 0;
       this.facility = null; this.perk = null; this.turretAmmo = 120; this.turretTimer = 0; this.gridTimer = .8; this.gridFlash = 0;
       this.gateTime = 18; this.gateOpen = false; this.reinforcementTimer = 2; this.pickups = PICKUPS.map(p => ({ ...p, taken: false }));
-      this.stats = { kills: 0, playerKills: 0, headshots: 0, facilityKills: 0, assists: 0, facilityDamage: 0, shots: 0, hits: 0, damageTaken: 0, grenadesUsed: 0, meleeKills:0,swings:0,bossDamage:0 };
+      this.stats = { kills: 0, playerKills: 0, headshots: 0, facilityKills: 0, assists: 0, facilityDamage: 0, shots: 0, hits: 0, damageTaken: 0, grenadesUsed: 0, meleeKills:0,swings:0,heavySwings:0,bossDamage:0 };
       this.notice = '左侧移动，右侧转向；敌人进入准星后可射击'; this.noticeTime = 7; this.result = null;
       this.flow = null; this.flowTimer = 0; this.goalCell = ''; this.setWaveQueue(0);
     }
@@ -75,7 +83,7 @@
     get activeCombat() { return ['wave', 'boss', 'evac', 'escape'].includes(this.stage); }
     get weaponInfo() { return this.weapon === 'melee' ? MELEE[this.melee] : WEAPONS[this.weapon === 'rifle' ? this.primary : 'pistol']; }
     get boss() { return this.enemies.find(e=>e.kind==='boss'&&!e.dead) || null; }
-    get bossStatus() { const b=this.boss; if(!b)return '';if(this.stage==='bossIntro')return '守门者逼近 · 准备战斗';return b.skill ? ({slam:'震地蓄力 · 离开圆圈或跳跃',charge:'冲撞锁定 · 向侧面奔跑',toxic:'毒液落点 · 离开预警区',rush:'冲撞中 · 保持横向移动'}[b.skill.type]) : b.enraged ? '狂暴阶段 · 技能间隔缩短' : '观察预警 · 利用奔跑与跳跃躲避'; }
+    get bossStatus() { const b=this.boss;if(!b)return '';if(this.stage==='bossIntro')return '守门者逼近 · 准备战斗';if(b.transition>0)return '护甲重组 · 随从即将入场';if(b.exposed>0)return `弱点暴露 ${b.exposed.toFixed(1)} 秒 · 集火头部`;return b.skill?({slam:b.phaseNumber>=2?'双重震地 · 跳跃后注意第二道冲击波':'震地蓄力 · 离开圆圈或跳跃',charge:b.skill.chain?'连环冲撞 · 锁定后横向躲避':'冲撞锁定 · 引诱撞墙',toxic:'毒液落点 · 离开预警区',rush:'冲撞中 · 保持横向移动'}[b.skill.type]):'护甲防守 · 引诱撞墙 / 重击破势'; }
     get zoom() { return this.aiming ? (this.weapon === 'rifle' ? OPTICS[this.optic].zoom : 1.25) : 1; }
     get frozen() { return this.paused || ['facilityChoice', 'perkChoice', 'won', 'lost'].includes(this.stage); }
     get remaining() { return this.enemies.filter(e => !e.dead).length + this.queue.length; }
@@ -116,7 +124,7 @@
       this.perk = value; if (value === 'shock') this.grenades = Math.min(3, this.grenades + 1); this.resupply(); this.startWave(3); return true;
     }
     switchWeapon(value) {
-      if (!['rifle', 'pistol','melee'].includes(value) || this.frozen) return;
+      if (!['rifle', 'pistol','melee'].includes(value) || this.frozen || this.meleeAction) return;
       if (this.weapon === value) return; this.weapon = value; this.reloadTime = 0; this.fireCooldown = Math.max(this.fireCooldown, .18); this.event('switch', { weapon: value });
     }
     reload() {
@@ -181,41 +189,82 @@
       }
       return true;
     }
-    meleeTargets() {
-      const w=MELEE[this.melee],d=direction(this.player.yaw),p=this.player;
+    meleeTargets(type='light') {
+      const w=MELEE[this.melee],a=MELEE_ATTACKS[this.melee][type],d=direction(this.player.yaw),p=this.player;
       return this.enemies.filter(e=>{
         if(e.dead)return false;const dist=distance(e,p),info=ENEMIES[e.kind];
-        return dist<=w.range+info.radius*.4 && p.feet<info.height && (dist<.01 || (d.x*(e.x-p.x)+d.z*(e.z-p.z))/dist>=Math.cos(w.angle*Math.PI/180)) && this.lineClear(p,e,Math.min(p.y,1.2));
+        return dist<=w.range+a.range+info.radius*.4 && p.feet<info.height && (dist<.01 || (d.x*(e.x-p.x)+d.z*(e.z-p.z))/dist>=Math.cos(a.angle*Math.PI/180)) && this.lineClear(p,e,Math.min(p.y,1.2));
       }).sort((a,b)=>distance(a,p)-distance(b,p));
     }
-    meleeAttack(auto=false) {
-      const w=MELEE[this.melee],targets=this.meleeTargets(); if(auto&&!targets.length)return false;
-      this.fireCooldown=w.interval;this.meleeTime=w.interval;this.stats.swings++;this.event('slash',{melee:this.melee});
-      for(const e of targets.slice(0,w.cleave)){
+    meleeAttack(auto=false,type='light') {
+      if(this.frozen||this.weapon!=='melee'||this.meleeAction||this.fireCooldown>0||this.player.sprinting||!['tutorial','wave','boss','facilityTravel','gateTravel','evac','escape'].includes(this.stage))return false;
+      const a=MELEE_ATTACKS[this.melee][type];if(!a)return false;
+      if(auto&&!this.meleeTargets(type).length)return false;
+      if(type==='heavy'&&this.player.stamina<18){if(this.notice!=='体力不足 · 重击需要 18 体力'||this.noticeTime<=0)this.notify('体力不足 · 重击需要 18 体力',1.5);return false;}
+      if(type==='heavy'){this.player.stamina-=18;this.player.recovery=a.duration+.35;this.stats.heavySwings++;}
+      this.fireCooldown=a.duration;this.meleeTime=a.duration;this.stats.swings++;
+      this.meleeAction={type,elapsed:0,duration:a.duration,windup:a.windup,active:a.active,impact:a.windup+a.active*.5,hitDone:false,combo:this.meleeCombo++%2};
+      this.event('slashstart',{melee:this.melee,heavy:type==='heavy'});return true;
+    }
+    updateMelee(dt) {
+      const action=this.meleeAction;if(!action)return;
+      action.elapsed=Math.min(action.duration,action.elapsed+dt);this.meleeTime=Math.max(0,action.duration-action.elapsed);
+      if(!action.hitDone&&action.elapsed>=action.impact){action.hitDone=true;this.resolveMelee(action);}
+      if(action.elapsed>=action.duration)this.meleeAction=null;
+    }
+    resolveMelee(action) {
+      const w=MELEE[this.melee],a=MELEE_ATTACKS[this.melee][action.type],targets=this.meleeTargets(action.type);
+      this.event('slash',{melee:this.melee,heavy:action.type==='heavy'});
+      for(const e of targets.slice(0,a.cleave)){
         const toPlayer={x:this.player.x-e.x,z:this.player.z-e.z},len=Math.max(.01,distance(e,this.player));
         const back=(toPlayer.x*e.fx+toPlayer.z*e.fz)/len<-.3;
-        const armored=e.kind==='armor'||e.kind==='boss';const amount=w.damage*(back?w.backstab:1)*(armored?w.armor:1);
-        this.damageEnemy(e,amount,'melee');this.event('hit',{point:{x:e.x,y:Math.min(1.35,ENEMIES[e.kind].height*.65),z:e.z},head:false,armor:armored});
+        const armored=e.kind==='armor'||e.kind==='boss';const amount=w.damage*a.damage*(back?w.backstab:1)*(armored?w.armor:1);
+        this.damageEnemy(e,amount,action.type==='heavy'?'heavy':'melee');this.event('hit',{point:{x:e.x,y:Math.min(1.35,ENEMIES[e.kind].height*.65),z:e.z},head:false,armor:armored});
       }
-      return true;
     }
     updateSprint(dt,input,moving) {
       const p=this.player;p.recovery=Math.max(0,p.recovery-dt);
       if(p.exhausted&&p.stamina>=25)p.exhausted=false;
-      p.sprinting=!!input.sprint&&moving&&!input.aim&&!input.fire&&!p.exhausted&&p.stamina>0&&this.fireCooldown<=.05;
+      p.sprinting=!!input.sprint&&moving&&!input.aim&&!input.fire&&!input.heavy&&!this.meleeAction&&!p.exhausted&&p.stamina>0&&this.fireCooldown<=.05;
       if(p.sprinting){p.stamina=Math.max(0,p.stamina-20*dt);p.recovery=.8;if(p.stamina===0){p.exhausted=true;p.sprinting=false;this.notify('体力耗尽 · 松开奔跑等待恢复',2);}}
       else if(p.recovery<=0)p.stamina=Math.min(100,p.stamina+24*dt);
     }
     damageEnemy(e, damage, source, head = false) {
-      if (e.dead) return; const actual = Math.min(e.hp, damage); e.hp -= damage; e.hit = .13;
-      if(e.kind==='boss')this.stats.bossDamage+=actual;
-      if (source === 'facility') { e.facilityAt = this.time; this.stats.facilityDamage += actual; }
-      if (e.hp > 0) return;
-      e.dead = true; this.stats.kills++;
-      if(source==='melee')this.stats.meleeKills++;
-      if(e.kind==='boss'){this.bossDefeated=true;this.hazards=[];this.event('bossdown',{x:e.x,z:e.z});this.notify('守门者已倒下 · 前往出口撤离',5);}
-      if (source === 'facility') this.stats.facilityKills++; else { this.stats.playerKills++; if (head) this.stats.headshots++; if (this.time - e.facilityAt < 4) this.stats.assists++; }
-      this.event('death', { id: e.id, x: e.x, z: e.z, kind: e.kind, head });
+      if(e.dead)return;
+      if(e.kind==='boss'){
+        if(e.transition>0||this.stage==='bossIntro')return;
+        const weak=e.exposed>0;
+        if(source==='player')damage*=weak?1:head?BOSS_RULES.guardHead/2.4:BOSS_RULES.guardBody;
+        else if(source==='heavy')damage*=weak?2:1.2;
+        else if(source==='melee')damage*=weak?1.5:.75;
+        else damage*=weak?(source==='grenade'?1.2:.9):(source==='grenade'?.55:.45);
+        const floor=e.phaseNumber<3?e.maxHp*(3-e.phaseNumber)/3:0;
+        damage=Math.min(damage,e.hp-floor);
+        if(source==='heavy'||source==='melee'){
+          e.stagger=Math.min(100,e.stagger+(source==='heavy'?(this.melee==='axe'?35:26):4));
+          if(e.stagger>=100){e.stagger=0;e.exposed=3;e.stun=1.4;e.skill=null;e.windup=0;e.skillCooldown=3.4;this.notify('重击破势！弱点暴露 3 秒',3);this.event('bossstagger');}
+        }
+      }
+      const actual=Math.min(e.hp,Math.max(0,damage));e.hp-=actual;e.hit=.13;
+      if(e.kind==='boss'){
+        this.stats.bossDamage+=actual;
+        if(e.hp>0&&e.phaseNumber<3&&e.hp<=e.maxHp*(3-e.phaseNumber)/3+.001){
+          e.phaseNumber++;e.enraged=e.phaseNumber===3;e.transition=BOSS_RULES.transition;e.skill=null;e.windup=0;e.exposed=0;e.stun=0;e.stagger=0;this.hazards=[];
+          this.player.hp=Math.min(100,this.player.hp+25);this.reserve=Math.min(WEAPONS[this.primary].cap,this.reserve+WEAPONS[this.primary].supply*2);this.pickups.forEach(p=>p.taken=false);
+          this.notify('第 '+e.phaseNumber+' 阶段 · 护甲重组，弹药补充',3);this.event('enrage');
+        }
+      }
+      if(source==='facility'){e.facilityAt=this.time;this.stats.facilityDamage+=actual;}
+      if(e.hp>0)return;
+      e.dead=true;this.stats.kills++;
+      if(source==='melee'||source==='heavy')this.stats.meleeKills++;
+      if(e.kind==='boss'){
+        this.bossDefeated=true;this.hazards=[];
+        for(const add of this.enemies)if(add!==e&&!add.dead){add.dead=true;this.event('death',{id:add.id,x:add.x,z:add.z,kind:add.kind,head:false});}
+        this.event('bossdown',{x:e.x,z:e.z});this.notify('守门者已倒下 · 前往出口撤离',5);
+      }
+      if(source==='facility')this.stats.facilityKills++;else{this.stats.playerKills++;if(head)this.stats.headshots++;if(this.time-e.facilityAt<4)this.stats.assists++;}
+      this.event('death',{id:e.id,x:e.x,z:e.z,kind:e.kind,head});
     }
     throwGrenade() {
       if (this.frozen || this.grenades <= 0 || this.grenadeCooldown > 0 || !['wave','boss', 'evac', 'escape', 'tutorial', 'gateTravel', 'facilityTravel'].includes(this.stage)) return false;
@@ -239,54 +288,75 @@
       this.wave=3;this.queue=[];this.pickups.forEach(p=>p.taken=false);this.grenades=Math.min(3,this.grenades+1);
       this.player.hp=Math.min(100,this.player.hp+40);this.reserve=WEAPONS[this.primary].cap;this.player.stamina=100;
       if(this.mode==='bossTraining'){this.player.x=0;this.player.z=6;}
-      const boss=this.spawn('boss');Object.assign(boss,{x:0,z:-14,skill:null,skillCooldown:2.5,skillIndex:0,enraged:false});
-      this.setStage('bossIntro');this.notify('守门者 / 2400 生命 · 瞄准头部，留意技能预警',5);this.event('bossintro');return true;
+      const boss=this.spawn('boss');Object.assign(boss,{x:0,z:-14,skill:null,skillCooldown:2.5,skillIndex:0,enraged:false,phaseNumber:1,transition:0,stun:0,stagger:0,exposed:0,supplyTimer:14});
+      this.setStage('bossIntro');this.notify('守门者 / 9600 生命 · 三阶段，技能后集火发光弱点',5);this.event('bossintro');return true;
     }
-    beginBossSkill(b,type) {
-      if(b.dead||this.stage!=='boss')return false;
+    beginBossSkill(b,type,chain=0) {
+      if(b.dead||b.transition>0||this.stage!=='boss')return false;
       const dx=this.player.x-b.x,dz=this.player.z-b.z,len=Math.max(.01,Math.hypot(dx,dz));
       b.fx=dx/len;b.fz=dz/len;b.windup=0;
-      b.skill={type,timer:type==='slam'?1.2:type==='charge'?1.05:1,duration:type==='slam'?1.2:type==='charge'?1.05:1,x:b.x,z:b.z,tx:this.player.x,tz:this.player.z,dx:dx/len,dz:dz/len,length:Math.min(18,len+3),radius:5.5,hit:false};
-      if(type==='toxic')for(let i=0;i<3;i++){
-        const angle=i*2.4;this.hazards.push({id:this.nextId++,type:'toxic',x:clamp(this.player.x+(i?Math.cos(angle)*2.1:0),-16,16),z:clamp(this.player.z+(i?Math.sin(angle)*2.1:0),-20,20),radius:1.65,warning:1.65,life:5,tick:0});
+      const warning=type==='slam'?(b.enraged?1:1.2):type==='charge'?(chain?.7:b.enraged?.8:1.05):1;
+      b.skill={type,timer:warning,duration:warning,chain,x:b.x,z:b.z,dx:dx/len,dz:dz/len,length:Math.min(18,len+3),radius:5.5,hit:false};
+      if(type==='toxic')for(let i=0;i<b.phaseNumber+2;i++){
+        const angle=i*2.4;this.hazards.push({id:this.nextId++,type:'toxic',x:clamp(this.player.x+(i?Math.cos(angle)*2.3:0),-16,16),z:clamp(this.player.z+(i?Math.sin(angle)*2.3:0),-20,20),radius:b.enraged?1.8:1.65,warning:1.65,life:5,tick:0});
       }
-      this.notify(({slam:'震地蓄力！离开红圈或起跳',charge:'冲撞锁定！横向奔跑躲避',toxic:'毒液落点！离开地面预警'})[type],2.5);this.event('bossskill',{skill:type,x:b.x,z:b.z});return true;
+      this.hazards=this.hazards.slice(-12);
+      this.notify(({slam:'震地蓄力！离开红圈或起跳',charge:chain?'二次冲撞！再次横向闪避':'冲撞锁定！横向奔跑躲避',toxic:'毒液落点！离开地面预警'})[type],2.5);this.event('bossskill',{skill:type,x:b.x,z:b.z});return true;
+    }
+    finishBossSkill(b,wall=false){
+      b.skill=null;b.windup=0;b.exposed=wall?3:b.phaseNumber===3?1.5:2;b.stun=wall?.7:0;b.skillCooldown=b.exposed+(b.phaseNumber===3?1.7:b.phaseNumber===2?2.2:2.7);
+      if(wall){this.notify('冲撞撞墙！弱点暴露 3 秒',3);this.event('bossstagger');}
     }
     updateBoss(b,dt) {
       if(this.stage!=='boss')return;
-      if(!b.enraged&&b.hp<=b.maxHp*.5){b.enraged=true;this.notify('守门者进入狂暴 · 技能更加频繁',4);this.event('enrage');}
+      b.exposed=Math.max(0,b.exposed-dt);b.stun=Math.max(0,b.stun-dt);b.supplyTimer-=dt;
+      if(b.supplyTimer<=0){b.supplyTimer=14;this.pickups.filter(p=>p.type==='ammo').forEach(p=>p.taken=false);this.notify('弹药补给已刷新 · 留意绿色补给标记',2);}
+      if(b.transition>0){
+        b.transition=Math.max(0,b.transition-dt);
+        if(b.transition===0){b.skillCooldown=1;for(let i=0;i<2&&this.enemies.filter(e=>!e.dead&&e.kind!=='boss').length<4;i++)this.spawn(b.phaseNumber===3?'runner':'walker');}
+        return;
+      }
+      if(b.stun>0)return;
       if(b.skill){
         const s=b.skill;s.timer-=dt;
         if(s.type==='rush'){
-          const before={x:b.x,z:b.z};this.move(b,s.dx*9*dt,s.dz*9*dt,.75);b.fx=s.dx;b.fz=s.dz;b.phase+=dt*11;
+          const speed=b.enraged?10.2:9,before={x:b.x,z:b.z};this.move(b,s.dx*speed*dt,s.dz*speed*dt,.75);b.fx=s.dx;b.fz=s.dz;b.phase+=dt*11;
           if(!s.hit&&distance(b,this.player)<1.55&&this.lineClear(b,this.player,1.1)){this.hurt(30);s.hit=true;this.move(this.player,s.dx*.7,s.dz*.7);}
-          if(distance(before,b)<9*dt*.25)s.timer=0;
+          if(distance(before,b)<speed*dt*.25){this.finishBossSkill(b,true);return;}
         }
         if(s.timer<=0){
-          if(s.type==='charge'){s.type='rush';s.timer=Math.min(1.7,s.length/9);s.hit=false;this.event('bosscharge');return;}
+          if(s.type==='charge'){s.type='rush';s.timer=Math.min(1.7,s.length/(b.enraged?10.2:9));s.hit=false;this.event('bosscharge');return;}
+          if(s.type==='rush'&&b.phaseNumber>=2&&!s.chain){this.beginBossSkill(b,'charge',1);return;}
           if(s.type==='slam'){
             if(distance(b,this.player)<s.radius&&this.player.feet<.5&&this.lineClear(b,this.player,.9))this.hurt(28);
             this.event('bossslam',{x:b.x,z:b.z,radius:s.radius});
+            if(b.phaseNumber>=2)this.hazards.push({id:this.nextId++,type:'shockwave',x:b.x,z:b.z,radius:.1,maxRadius:b.enraged?9:8,warning:.65,life:2,tick:0,hit:false});
           }
-          b.skill=null;b.skillCooldown=b.enraged?3.8:5.2;
+          this.finishBossSkill(b);
         }
         return;
       }
       b.skillCooldown-=dt;const dist=distance(b,this.player);
-      if(b.skillCooldown<=0){const turn=b.skillIndex++%3;const skill=dist<4.5?'slam':turn===1&&dist<20&&this.walkClear(b,this.player,.75)?'charge':turn===2?'slam':'toxic';this.beginBossSkill(b,skill);return;}
+      if(b.skillCooldown<=0){const turn=b.skillIndex++%3;this.beginBossSkill(b,turn===0?'toxic':turn===1?'charge':dist<7?'slam':'toxic');return;}
+      if(b.exposed>0)return;
       if(dist<2.3&&this.lineClear(b,this.player,1.1)){
         b.fx=(this.player.x-b.x)/Math.max(.01,dist);b.fz=(this.player.z-b.z)/Math.max(.01,dist);
         if(b.windup>0){b.windup-=dt;if(b.windup<=0){if(distance(b,this.player)<2.65&&this.lineClear(b,this.player,1.1))this.hurt(22);b.cooldown=1.7;}}
         else if(b.cooldown<=0){b.windup=.65;this.event('attack',{x:b.x,z:b.z});}
       }else{
-        b.windup=0;const target=this.navigate(b),d=distance(b,target);if(d>.025){b.fx=(target.x-b.x)/d;b.fz=(target.z-b.z)/d;const speed=(b.enraged?1.8:1.25)*(b.slow>0?b.slowFactor:1);this.move(b,b.fx*speed*dt,b.fz*speed*dt,.75);b.phase+=dt*speed*3;}
+        b.windup=0;const target=this.navigate(b),d=distance(b,target);if(d>.025){b.fx=(target.x-b.x)/d;b.fz=(target.z-b.z)/d;const speed=(b.enraged?2:1.55)*(b.slow>0?b.slowFactor:1);this.move(b,b.fx*speed*dt,b.fz*speed*dt,.75);b.phase+=dt*speed*3;}
       }
     }
     updateHazards(dt) {
       for(const h of this.hazards){
         if(h.warning>0){h.warning=Math.max(0,h.warning-dt);continue;}
-        h.life-=dt;h.tick-=dt;
-        if(h.tick<=0){h.tick=.8;if(distance(h,this.player)<h.radius&&this.player.feet<.55)this.hurt(9);}
+        h.life-=dt;
+        if(h.type==='shockwave'){
+          const before=h.radius;h.radius+=7*dt;
+          const d=distance(h,this.player);
+          if(!h.hit&&d>=before-.6&&d<=h.radius+.6&&this.player.feet<.5&&this.lineClear(h,this.player,.9)){this.hurt(18);h.hit=true;}
+          if(h.radius>=h.maxRadius)h.life=0;
+        }else{h.tick-=dt;if(h.tick<=0){h.tick=.8;if(distance(h,this.player)<h.radius&&this.player.feet<.55)this.hurt(9);}}
       }
       this.hazards=this.hazards.filter(h=>h.life>0);
     }
@@ -334,7 +404,7 @@
     }
     tick(dt, input) {
       this.time += dt; this.stageTime += dt; this.noticeTime = Math.max(0, this.noticeTime - dt); this.fireCooldown = Math.max(0, this.fireCooldown - dt); this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt); this.player.hitCooldown = Math.max(0, this.player.hitCooldown - dt); this.player.recoil = Math.max(0, this.player.recoil - dt * .5); this.gridFlash = Math.max(0, this.gridFlash - dt);
-      this.meleeTime=Math.max(0,this.meleeTime-dt);
+
       this.aiming = !!input.aim && this.weapon!=='melee';
       this.updateJump(dt);
       const dx = clamp(Number(input.x) || 0, -1, 1), forward = clamp(Number(input.forward) || 0, -1, 1), length = Math.max(1, Math.hypot(dx, forward));
@@ -343,7 +413,8 @@
       this.move(this.player, (dx * cos - forward * sin) / length * speed, (-forward * cos - dx * sin) / length * speed);
       if (input.turn) this.look(input.turn * dt * 1.7, 0);
       if (this.reloadTime > 0) { this.reloadTime = Math.max(0, this.reloadTime - dt); if (this.reloadTime <= 0) { const needed = this.weaponInfo.mag - this.ammo[this.weapon], amount = this.weapon === 'pistol' ? needed : Math.min(needed, this.reserve); this.ammo[this.weapon] += amount; if (this.weapon === 'rifle') this.reserve -= amount; this.event('reloaded'); } }
-      if (!this.player.sprinting && (input.fire || input.autoFire)) this.shoot(!input.fire);
+      this.updateMelee(dt);
+      if(!this.player.sprinting){if(this.weapon==='melee'&&input.heavy)this.meleeAttack(false,'heavy');else if(input.fire||input.autoFire)this.shoot(!input.fire);}
       if (this.weapon!=='melee' && this.ammo[this.weapon] <= 0 && this.reloadTime <= 0) this.reload();
       if (this.weapon === 'rifle' && this.ammo.rifle === 0 && this.reserve === 0 && this.reloadTime <= 0) { this.switchWeapon('pistol'); this.notify('步枪弹药耗尽 · 已切换备用手枪', 4); }
       for (const p of this.pickups) if (!p.taken && distance(p, this.player) < 1.15) {
@@ -386,5 +457,5 @@
       if (this.stage === 'escape' && Math.abs(this.player.x) < 2.6 && this.player.z < -19.7) this.finish(true);
     }
   }
-  return { Game, WEAPONS, OPTICS, MELEE, ENEMIES, OBSTACLES, GATE, BOX, EXIT, GRID, TURRET, PORTALS, PICKUPS, direction, rayBox, raySphere, clamp, distance, formatTime };
+  return { Game, WEAPONS, OPTICS, MELEE, MELEE_ATTACKS, BOSS_RULES, ENEMIES, OBSTACLES, GATE, BOX, EXIT, GRID, TURRET, PORTALS, PICKUPS, direction, rayBox, raySphere, clamp, distance, formatTime };
 });

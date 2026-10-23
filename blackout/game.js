@@ -1,6 +1,6 @@
-import { World } from './scene.js?v=3';
+import { World } from './scene.js?v=4';
 const B = window.Blackout;
-const { Game, WEAPONS, OPTICS, MELEE, OBSTACLES, GRID, TURRET, BOX, EXIT, PORTALS, clamp, direction, distance, formatTime } = B;
+const { Game, WEAPONS, OPTICS, MELEE, MELEE_ATTACKS, OBSTACLES, GRID, TURRET, BOX, EXIT, PORTALS, clamp, direction, distance, formatTime } = B;
 const $ = id => document.getElementById(id);
 const touchQuery = matchMedia('(pointer:coarse)');
 let touchMode = touchQuery.matches, options = { primary: 'm4', melee:'combat', optic: 'red', quality: touchMode ? 'low' : 'high', renderRevision: 2, sound: true, auto: true };
@@ -18,7 +18,7 @@ history = history.filter(r => r && typeof r.won === 'boolean' && Number.isFinite
 document.body.classList.toggle('touch-mode', touchMode);
 window.bootProgress(65, '正在构建公交总站、武器和导航…');
 const view = new World($('world'), options.quality);
-let game = null, lastTimestamp = 0, menuTime = 0, hudTimer = 0, aimTimer = 0, lastStage = '', resultSaved = false, manualFire = false, toggleAim = false, toggleSprint = false;
+let game = null, lastTimestamp = 0, menuTime = 0, hudTimer = 0, aimTimer = 0, lastStage = '', resultSaved = false, manualFire = false, manualHeavy = false, toggleAim = false, toggleSprint = false;
 let joystickPointer = null, joystickInput = { x: 0, forward: 0 }, lookPointer = null, lastLook = { x: 0, y: 0 }, lastLocked = false, hitFlash = 0, hurtFlash = 0;
 let portrait = innerHeight > innerWidth;
 const mouse = new window.BlackoutControls.MouseControls($('world'), document, {
@@ -53,7 +53,7 @@ class SoundSystem {
   }
   events(events) {
     for (const e of events) {
-      if(e.type==='slash'){this.noiseBurst(.1,3600,.09);this.tone(options.melee==='axe'?120:260,.09,.035,'triangle',80);}
+      if(e.type==='slash'){this.noiseBurst(e.heavy?.18:.1,3600,e.heavy?.13:.09);this.tone(options.melee==='axe'?120:260,e.heavy?.18:.09,.035,'triangle',80);}
       if(e.type==='bossintro'||e.type==='enrage'){this.noiseBurst(.5,400,.25);this.tone(55,.8,.16,'sawtooth',35);}
       if(e.type==='bossskill')this.tone(e.skill==='slam'?120:220,.5,.12,'sawtooth',60);
       if(e.type==='bossslam'||e.type==='bossdown'){this.noiseBurst(.6,900,.5);this.tone(65,.45,.2,'triangle',25);}
@@ -79,12 +79,12 @@ function updateMenu() {
   document.querySelectorAll('[data-weapon]').forEach(b => { const selected = b.dataset.weapon === options.primary; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
   document.querySelectorAll('[data-optic]').forEach(b => { const selected = b.dataset.optic === options.optic; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
   $('weapon-description').textContent = weaponDescriptions[options.primary]; $('quality-setting').value = options.quality; $('pause-quality').value = options.quality; $('sound-setting').checked = options.sound; $('auto-setting').checked = options.auto;
-  document.querySelectorAll('[data-melee]').forEach(b=>{const selected=b.dataset.melee===options.melee;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});const blade=MELEE[options.melee];$('melee-description').textContent=`${blade.damage} 伤害 / ${blade.range} 米 / ${blade.interval} 秒间隔 · ${blade.desc}`;
+  document.querySelectorAll('[data-melee]').forEach(b=>{const selected=b.dataset.melee===options.melee;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});const blade=MELEE[options.melee];$('melee-description').textContent=`轻击 ${blade.damage} / 重击 ${Math.round(blade.damage*MELEE_ATTACKS[options.melee].heavy.damage)} · ${blade.range} 米 · ${blade.desc} · 重击消耗 18 体力`;
   const wins = history.filter(r => r.won && r.mode!=='bossTraining' && r.bossDefeated), best = wins.length ? Math.min(...wins.map(r => r.time)) : null;
   $('career-label').textContent = !storageAvailable ? '浏览器存储不可用，本次仍可游玩。' : wins.length ? `${wins.length} 次成功撤离 / 最佳 ${formatTime(best)}` : '准备好，活着回来。';
 }
 function saveOptions() { save('blackout-loadout-v1', options); }
-function clearInput() { keys.clear(); manualFire = false; toggleSprint = false; mouse.reset(); toggleAim = false; lookPointer = null; joystickPointer = null; joystickInput = { x: 0, forward: 0 }; $('joystick-knob').style.transform = ''; }
+function clearInput() { keys.clear(); manualFire = false; manualHeavy = false; toggleSprint = false; mouse.reset(); toggleAim = false; lookPointer = null; joystickPointer = null; joystickInput = { x: 0, forward: 0 }; $('joystick-knob').style.transform = ''; }
 function releasePointer() { if (document.pointerLockElement) document.exitPointerLock(); }
 function requestPointer() {
   if (touchMode || !game || game.frozen) return;
@@ -94,7 +94,7 @@ function start(mode = 'campaign') {
   clearInput(); sound.unlock(); view.reset(); view.setQuality(options.quality); game = new Game({ primary: options.primary, melee:options.melee, mode:mode==='bossTraining'?'bossTraining':'campaign', optic: options.optic, seed: Date.now() % 2147483647 });
   if(game.mode==='bossTraining')game.startBossEncounter();
   lastStage = ''; resultSaved = false; hitFlash = hurtFlash = 0; hudTimer = 1; $('menu').hidden = true; $('hud').hidden = false; $('pause-overlay').hidden = true; $('result-overlay').hidden = true; $('selection-overlay').hidden = true;
-  $('tutorial-copy').textContent = touchMode ? '摇杆移动 · ⇧ 奔跑 · ↑ 跳跃 · ⇄ 切枪/刀' : 'WASD 移动 · Shift 奔跑 · 空格跳跃 · 3 / V 持刀';
+  $('tutorial-copy').textContent = touchMode ? '摇杆移动 · ⇧ 奔跑 · ↑ 跳跃 · ⇄ 切枪/刀' : 'WASD 移动 · Shift 奔跑 · 空格跳跃 · 3 / V 持刀 · 左轻 / 右重';
   requestPointer(); syncStage(); updateHUD();
 }
 function pause(reason = '游戏已暂停，准备好了再继续。') {
@@ -147,22 +147,22 @@ function updateHUD() {
   $('elapsed-time').textContent = formatTime(game.time); $('gate-progress').hidden = !['evac', 'escape'].includes(game.stage); $('gate-fill').style.width = (18 - game.gateTime) / 18 * 100 + '%';
   $('hp-label').textContent = game.player.hp; $('hp-fill').style.width = game.player.hp + '%'; $('hp-fill').style.background = game.player.hp < 35 ? '#dd8b67' : '#b7cf91'; $('hp-status').textContent = game.player.hp < 35 ? 'CRITICAL / 寻找医疗补给' : 'VITALS STABLE';
   $('ammo-label').textContent = game.weapon==='melee'?'∞':String(game.ammo[game.weapon]).padStart(2, '0'); $('reserve-label').textContent = game.weapon==='melee' ? '近战' : game.weapon === 'pistol' ? '∞' : game.reserve;
-  $('current-weapon').textContent = game.weaponInfo.short; $('reload-label').textContent = game.weapon==='melee' ? (game.fireCooldown>.05?'挥砍中':`距离 ${game.weaponInfo.range}m`) : game.reloadTime > 0 ? `装填 ${game.reloadTime.toFixed(1)}s` : game.weapon === 'rifle' && game.primary === 'awm' && game.fireCooldown > .2 ? '拉栓中' : '';
+  $('current-weapon').textContent = game.weaponInfo.short; $('reload-label').textContent = game.weapon==='melee' ? (game.meleeAction?`${game.meleeAction.type==='heavy'?'重击':'轻击'} · ${game.meleeAction.elapsed<game.meleeAction.windup?'蓄力':game.meleeAction.hitDone?'收势':'出刀'}`:'左键轻击 · 右键 / F 重击') : game.reloadTime > 0 ? `装填 ${game.reloadTime.toFixed(1)}s` : game.weapon === 'rifle' && game.primary === 'awm' && game.fireCooldown > .2 ? '拉栓中' : '';
   $('reload-fill').style.width = game.reloadTime > 0 ? (1 - game.reloadTime / game.reloadDuration) * 100 + '%' : '0%';
   $('grenade-count').textContent = game.grenades; $('grenade-button').disabled = game.grenades <= 0;
   $('cycle-optic').textContent = game.weapon==='melee'?'刀具':game.weapon === 'pistol' ? '铁瞄' : OPTICS[game.optic].short; $('cycle-optic').disabled = game.weapon !== 'rifle';
   const scoped = game.aiming && !game.frozen; $('scope-overlay').hidden = !scoped; $('scope-overlay').classList.toggle('red-optic', game.optic === 'red' || game.weapon === 'pistol'); $('scope-label').textContent = game.weapon === 'pistol' ? '铁瞄' : OPTICS[game.optic].short;
-  $('reticle').hidden = scoped; $('aim-button').classList.toggle('active', game.aiming); $('aim-button').querySelector('small').textContent = game.aiming ? '关镜' : '开镜';
+  $('reticle').hidden = scoped; $('aim-button').classList.toggle('active', game.aiming); $('aim-button').querySelector('small').textContent = game.weapon==='melee'?'重击':game.aiming ? '关镜' : '开镜';$('aim-button').setAttribute('aria-label',game.weapon==='melee'?'按住重击，消耗18体力':'开镜或关闭瞄准镜');
   $('interact-button').hidden = !game.interaction || game.frozen; $('interact-label').textContent = game.interaction;
   $('notice').textContent = game.notice; $('notice').classList.toggle('visible', game.noticeTime > 0 && !game.frozen && game.stage !== 'tutorial');
   $('facility-state').hidden = !game.facility; if (game.facility) { $('facility-name').textContent = facilityNames[game.facility]; $('facility-detail').textContent = game.facility === 'grid' ? `下次脉冲 ${Math.max(0, game.gridTimer).toFixed(1)}s` : `剩余 ${game.turretAmmo} / 120 发`; }
   const point = game.objectivePoint; $('objective-arrow').hidden = !point;
   if (point) { const angle = Math.atan2(point.x - game.player.x, -(point.z - game.player.z)) + game.player.yaw; $('objective-arrow').querySelector('span').style.transform = `rotate(${angle}rad)`; $('objective-distance').textContent = Math.round(distance(point, game.player)) + ' M'; }
-  const target = game.weapon==='melee' ? (game.meleeTargets()[0]?{enemy:game.meleeTargets()[0]}:null) : game.trace().hits[0]; $('reticle').classList.toggle('on-target', !!target); $('target-label').textContent = target ? target.enemy.kind==='boss' ? '守门者 / 头部弱点' : target.enemy.kind === 'armor' ? '护甲目标 / 头部弱点' : target.enemy.kind === 'runner' ? '奔袭者' : '感染者' : '';
+  const target = game.weapon==='melee' ? (game.meleeTargets()[0]?{enemy:game.meleeTargets()[0]}:null) : game.trace().hits[0]; $('reticle').classList.toggle('on-target', !!target); $('target-label').textContent = target ? target.enemy.kind==='boss' ? (game.boss?.exposed>0?'守门者 / 弱点暴露！':'守门者 / 护甲防守') : target.enemy.kind === 'armor' ? '护甲目标 / 头部弱点' : target.enemy.kind === 'runner' ? '奔袭者' : '感染者' : '';
   $('hud-sound').setAttribute('aria-label', options.sound ? '关闭音效' : '开启音效'); $('hud-sound').style.opacity = options.sound ? '1' : '.45';
   const boss=game.boss;document.body.classList.toggle('boss-active',!!boss);$('boss-hud').hidden=!boss;
-  if(boss){$('boss-health').textContent=Math.ceil(Math.max(0,boss.hp))+' / '+boss.maxHp;$('boss-fill').style.width=(boss.hp/boss.maxHp*100)+'%';$('boss-hud').classList.toggle('enraged',!!boss.enraged);$('boss-warning').textContent=game.bossStatus;}
-  $('stamina-fill').style.width=game.player.stamina+'%';$('stamina-label').textContent=game.player.sprinting?'奔跑中':game.player.exhausted?'体力耗尽 · 恢复中':'体力 '+Math.round(game.player.stamina)+' / 100';$('sprint-button').classList.toggle('active',game.player.sprinting||toggleSprint);$('sprint-button').setAttribute('aria-pressed',String(toggleSprint));$('reload-button').disabled=game.weapon==='melee';$('aim-button').disabled=game.weapon==='melee';$('fire-button').querySelector('small').textContent=game.weapon==='melee'?'挥砍':'射击';
+  if(boss){$('boss-title').textContent='守门者 / 阶段 '+boss.phaseNumber+' · '+(boss.exposed>0?'弱点暴露':'护甲防守');$('boss-stagger').style.width=boss.stagger+'%';$('boss-hud').classList.toggle('exposed',boss.exposed>0);$('boss-health').textContent=Math.ceil(Math.max(0,boss.hp))+' / '+boss.maxHp;$('boss-fill').style.width=(boss.hp/boss.maxHp*100)+'%';$('boss-hud').classList.toggle('enraged',!!boss.enraged);$('boss-warning').textContent=game.bossStatus;}
+  $('stamina-fill').style.width=game.player.stamina+'%';$('stamina-label').textContent=game.player.sprinting?'奔跑中':game.player.exhausted?'体力耗尽 · 恢复中':'体力 '+Math.round(game.player.stamina)+' / 100';$('sprint-button').classList.toggle('active',game.player.sprinting||toggleSprint);$('sprint-button').setAttribute('aria-pressed',String(toggleSprint));$('reload-button').disabled=game.weapon==='melee';$('aim-button').disabled=false;$('fire-button').querySelector('small').textContent=game.weapon==='melee'?'轻击':'射击';
   drawRadar();
 }
 function drawRadar() {
@@ -180,7 +180,7 @@ function drawRadar() {
 }
 const TAU = Math.PI * 2;
 function inputs() {
-  return { x: joystickInput.x + Number(keys.has('d')) - Number(keys.has('a')), forward: joystickInput.forward + Number(keys.has('w')) - Number(keys.has('s')), turn: Number(keys.has('arrowleft')) - Number(keys.has('arrowright')), sprint:keys.has('shift')||toggleSprint,fire: mouse.fire || manualFire, autoFire: touchMode && options.auto, aim: game?.weapon!=='melee'&&(mouse.aim || toggleAim) };
+  return { x: joystickInput.x + Number(keys.has('d')) - Number(keys.has('a')), forward: joystickInput.forward + Number(keys.has('w')) - Number(keys.has('s')), turn: Number(keys.has('arrowleft')) - Number(keys.has('arrowright')), sprint:keys.has('shift')||toggleSprint,heavy:game?.weapon==='melee'&&(mouse.aim||keys.has('f')||manualHeavy),fire: mouse.fire || manualFire, autoFire: touchMode && options.auto, aim: game?.weapon!=='melee'&&(mouse.aim || toggleAim) };
 }
 function frame(timestamp) {
   const dt = Math.min((timestamp - (lastTimestamp || timestamp)) / 1000, .05); lastTimestamp = timestamp;
@@ -208,12 +208,14 @@ $('hud-sound').addEventListener('click', () => { options.sound = !options.sound;
 $('reload-button').addEventListener('click', () => game?.reload()); $('grenade-button').addEventListener('click', () => game?.throwGrenade()); $('switch-button').addEventListener('click', switchGun);
 $('sprint-button').addEventListener('click',()=>{if(game&&!game.frozen)toggleSprint=!toggleSprint;});
 $('jump-button').addEventListener('click', () => game?.jump());
-$('aim-button').addEventListener('click', () => { if (game && !game.frozen) toggleAim = !toggleAim; });
+$('aim-button').addEventListener('click', () => { if (game && !game.frozen && game.weapon!=='melee') toggleAim = !toggleAim; });
+$('aim-button').addEventListener('pointerdown',event=>{if(!game||game.frozen||game.weapon!=='melee')return;event.preventDefault();manualHeavy=true;event.currentTarget.setPointerCapture(event.pointerId);});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])$('aim-button').addEventListener(event,()=>{manualHeavy=false;});
 $('interact-button').addEventListener('click', () => game?.interact());
 $('cycle-optic').addEventListener('click', () => { if (game?.weapon === 'rifle') { const values = ['red', 'x4', 'x8']; setOptic(values[(values.indexOf(game.optic) + 1) % 3]); } });
 document.addEventListener('keydown', event => {
   if (event.target.closest?.('input,select,textarea')) return;
-  const key = event.key.toLowerCase(); if (!game || !['w', 'a', 's', 'd', ' ', 'q', 'r', 'e', 'g', '1', '2', '3', 'v', 'shift', 'p', 'escape', 'arrowleft', 'arrowright'].includes(key)) return; event.preventDefault();
+  const key = event.key.toLowerCase(); if (!game || !['w', 'a', 's', 'd', ' ', 'q', 'r', 'e', 'g', '1', '2', '3', 'v', 'f', 'shift', 'p', 'escape', 'arrowleft', 'arrowright'].includes(key)) return; event.preventDefault();
   if (event.repeat) return;
   if (key === 'p') { if (game.paused) resume(); else pause(); return; }
   if (key === 'escape') { pause(); return; }

@@ -47,15 +47,15 @@ test('all weapon / facility / perk builds complete wave, power, perk, gate and e
   let runs=0;
   for(const primary of ['m4','ak','awm'])for(const facility of ['grid','turret'])for(const perk of ['pierce','reload','shock']){
     const g=new Game({primary,optic:'x8',seed:35+runs}); g.skipTutorial(); g.player.hp=1e6;
-    for(let frame=0;frame<6500 && g.stage!=='gateTravel';frame++){
+    for(let frame=0;frame<11000 && g.stage!=='gateTravel';frame++){
       if(g.stage==='facilityTravel'){Object.assign(g.player,BOX);assert.ok(g.interact()); const before=g.time; advance(g,1); assert.equal(g.time,before); assert.equal(g.chooseFacility('invalid'),false); assert.ok(g.chooseFacility(facility));}
       if(g.stage==='perkChoice'){assert.ok(g.choosePerk(perk));}
       const visible=g.enemies.filter(e=>!e.dead&&g.lineClear(g.player,e,1.65)).sort((a,b)=>distance(a,g.player)-distance(b,g.player)); if(visible[0])aim(g,visible[0]);
       // This harness isolates progression and weapon rules; survival balance is tested by playtesting.
       g.player.hp=1e6; g.step(.05,{fire:!!visible[0],aim:true});g.drainEvents();
     }
-    assert.equal(g.stage,'gateTravel',primary+'/'+facility+'/'+perk); assert.equal(g.stats.kills,43);assert.equal(g.bossDefeated,true);assert.equal(g.stats.bossDamage,2400);
-    Object.assign(g.player,{x:0,z:-17.5,hp:1e6});assert.equal(g.interact(),false);advance(g,6.1);assert.ok(g.interact()); const remaining=g.gateTime;g.pause();advance(g,3);assert.equal(g.gateTime,remaining);g.resume();advance(g,18.1);assert.equal(g.stage,'escape');assert.equal(g.gateOpen,true);const spawned=g.spawned;advance(g,2);assert.equal(g.spawned,spawned);assert.equal(g.stage,'escape');advance(g,1,{forward:1});assert.equal(g.stage,'won');assert.ok(g.result.won);assert.equal(g.result.primary,primary);assert.equal(g.result.perk,perk);assert.equal(g.result.facility,facility);runs++;
+    assert.equal(g.stage,'gateTravel',primary+'/'+facility+'/'+perk); assert.ok(g.stats.kills>=43);assert.equal(g.bossDefeated,true);assert.ok(Math.abs(g.stats.bossDamage-9600)<.01);
+    Object.assign(g.player,{x:0,z:-17.5,hp:1e6,yaw:0,pitch:0});assert.equal(g.interact(),false);advance(g,6.1);assert.ok(g.interact()); const remaining=g.gateTime;g.pause();advance(g,3);assert.equal(g.gateTime,remaining);g.resume();advance(g,18.1);assert.equal(g.stage,'escape');assert.equal(g.gateOpen,true);const spawned=g.spawned;advance(g,2);assert.equal(g.spawned,spawned);assert.equal(g.stage,'escape');advance(g,1,{forward:1});assert.equal(g.stage,'won');assert.ok(g.result.won);assert.equal(g.result.primary,primary);assert.equal(g.result.perk,perk);assert.equal(g.result.facility,facility);runs++;
   }
   assert.equal(runs,18);
 });

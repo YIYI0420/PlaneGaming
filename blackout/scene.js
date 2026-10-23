@@ -1,7 +1,8 @@
+import { applyMeleePose } from './melee-pose.js?v=4';
 import * as THREE from './vendor/three.module.min.js';
-import { applyWeaponPose, applyCameraPose, RED_SIGHT_CENTER, QUALITY } from './presentation.js?v=3';
-import { beveledBox, upgradeEnvironment, applyQuality } from './graphics.js?v=3';
-import { buildMeleeModels, spawnBossActor, BossEffects } from './combat-visuals.js?v=3';
+import { applyWeaponPose, applyCameraPose, RED_SIGHT_CENTER, QUALITY } from './presentation.js?v=4';
+import { beveledBox, upgradeEnvironment, applyQuality } from './graphics.js?v=4';
+import { buildMeleeModels, updateMeleeArms, spawnBossActor, BossEffects } from './combat-visuals.js?v=4';
 const B = window.Blackout;
 const { OBSTACLES, GRID, TURRET, BOX, PORTALS, ENEMIES, direction, clamp } = B;
 const TAU = Math.PI * 2;
@@ -251,11 +252,13 @@ export class World {
     Object.entries(this.meleeModels).forEach(([id,m])=>{m.visible=game.weapon==='melee'&&id===game.melee;});
     const reload = applyWeaponPose(this.viewRoot, game, now);
     if(game.weapon==='melee'){
-      const progress=game.meleeTime>0?1-game.meleeTime/game.weaponInfo.interval:0, swing=game.meleeTime>0?Math.sin(progress*Math.PI):0;
-      this.viewRoot.position.set(.29-swing*.40,-.30+swing*.16+Math.sin(now*7)*.003,-.86+swing*.12);this.viewRoot.rotation.set(.25+swing*(game.melee==='axe'?1.1:.2),-.15+swing*.4,-.38-swing*1.4);
-      this.meleeModels[game.melee].userData.trail.material.opacity=swing*.18;
+      applyMeleePose(this.viewRoot,game.melee,game.meleeAction,now);
+      const model=this.meleeModels[game.melee],a=game.meleeAction;
+      model.userData.support.visible=game.melee==='katana'||(game.melee==='axe'&&a?.type==='heavy');
+      model.userData.trail.material.opacity=a&&a.elapsed>=a.windup&&a.elapsed<=a.windup+a.active?.12:0;
     }
     if(game.player.sprinting){this.viewRoot.position.y-=.10;this.viewRoot.rotation.z+=.25;this.viewRoot.position.x+=Math.sin(now*15)*.009;}
+    updateMeleeArms(this,game.weapon==='melee'?game.melee:null,game.meleeAction?.type==='heavy');
     this.bossEffects.update(game,dt);
     for (const model of Object.values(this.guns)) { model.userData.flash.material.opacity = Math.max(0, model.userData.flash.material.opacity - dt * 15); if (model.userData.magazine) model.userData.magazine.position.y = (model === this.guns.awm ? -.08 : -.13) - reload * .12; }
     if (this.guns.awm.userData.bolt) this.guns.awm.userData.bolt.position.z = .03 + Math.max(0, Math.sin(game.fireCooldown / 1.12 * Math.PI * 2)) * .09;
@@ -268,7 +271,7 @@ export class World {
       actor.bodyMat.color.set(enemy.hit > 0 ? '#d8d8be' : actor.bodyColor); actor.head.scale.y = (actor.baseHeadY||.235) * (enemy.hit > 0 ? .85 : 1); actor.group.scale.setScalar(enemy.kind === 'armor' ? 1.03 : 1);
       if(enemy.kind==='boss'){
         const raised=enemy.skill&&enemy.skill.type!=='rush';if(raised){actor.limbs[1].rotation.x=actor.limbs[3].rotation.x=-1.7;}
-        actor.torso.rotation.x=enemy.skill?.type==='rush'?.18:0;actor.coreMat.emissive.set(enemy.enraged?'#ff2f15':'#ec782d');actor.coreMat.emissiveIntensity=1+Math.sin(now*6)*.35;
+        actor.torso.rotation.x=enemy.skill?.type==='rush'?.18:0;actor.coreMat.emissive.set(enemy.exposed>0?'#83ffb7':enemy.enraged?'#ff2f15':'#ec782d');actor.plates.forEach((plate,i)=>plate.visible=enemy.phaseNumber<=(i===0?1:2));actor.coreMat.emissiveIntensity=1+Math.sin(now*6)*.35;
       }
     }
     for (const [id, actor] of this.actors) {

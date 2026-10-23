@@ -22,17 +22,17 @@ export function surfaceTextures() {
   return { asphalt,concrete,fabric,contact };
 }
 function skyMaterial() {
-  return new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{},vertexShader:`varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`varying vec3 vDirection;void main(){vec3 d=normalize(vDirection);float h=max(d.y,0.);vec3 top=vec3(.055,.10,.17),horizon=vec3(.44,.38,.29);vec3 sky=mix(horizon,top,pow(h,.4));float sun=max(dot(d,normalize(vec3(-.55,.30,-.64))),0.);sky+=vec3(1.,.52,.19)*pow(sun,64.)*.36+vec3(2.2,1.35,.6)*pow(sun,1400.);float cloud=sin(d.x*23.+d.z*18.)*sin(d.z*13.-d.x*8.);sky+=vec3(.09,.10,.12)*smoothstep(.20,.65,cloud)*smoothstep(.04,.32,d.y)*.28;gl_FragColor=vec4(sky,1.);}`});
+  return new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{sunStrength:{value:1},topColor:{value:new THREE.Color('#0e1a2b')},horizonColor:{value:new THREE.Color('#70614a')}},vertexShader:`varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`uniform float sunStrength;uniform vec3 topColor;uniform vec3 horizonColor;varying vec3 vDirection;void main(){vec3 d=normalize(vDirection);float h=max(d.y,0.);vec3 top=topColor,horizon=horizonColor;vec3 sky=mix(horizon,top,pow(h,.4));float sun=max(dot(d,normalize(vec3(-.55,.30,-.64))),0.);sky+=(vec3(1.,.52,.19)*pow(sun,64.)*.36+vec3(2.2,1.35,.6)*pow(sun,1400.))*sunStrength;float cloud=sin(d.x*23.+d.z*18.)*sin(d.z*13.-d.x*8.);sky+=vec3(.09,.10,.12)*smoothstep(.20,.65,cloud)*smoothstep(.04,.32,d.y)*.28;gl_FragColor=vec4(sky,1.);}`});
 }
 export function upgradeEnvironment(world) {
   const {scene,renderer}=world; world.textures=surfaceTextures();
   const sky=world.sky=new THREE.Mesh(new THREE.SphereGeometry(60,32,16),skyMaterial());sky.renderOrder=-100;sky.frustumCulled=false;sky.userData.noShadow=true;scene.add(sky);
   const envScene=new THREE.Scene();envScene.add(new THREE.Mesh(new THREE.SphereGeometry(50,24,12),skyMaterial()));
   const pmrem=new THREE.PMREMGenerator(renderer);world.environment=pmrem.fromScene(envScene,.04).texture;scene.environment=world.environment;pmrem.dispose();envScene.children[0].geometry.dispose();envScene.children[0].material.dispose();
-  const ground=new THREE.Mesh(new THREE.PlaneGeometry(36,44),new THREE.MeshStandardMaterial({color:'#89918c',map:world.textures.asphalt,bumpMap:world.textures.asphalt,bumpScale:.025,roughness:.93,metalness:.04}));ground.rotation.x=-Math.PI/2;ground.position.y=-.043;ground.receiveShadow=true;scene.add(ground);
+  const ground=world.ground=new THREE.Mesh(new THREE.PlaneGeometry(36,44),new THREE.MeshStandardMaterial({color:'#89918c',map:world.textures.asphalt,bumpMap:world.textures.asphalt,bumpScale:.025,roughness:.93,metalness:.04}));ground.rotation.x=-Math.PI/2;ground.position.y=-.043;ground.receiveShadow=true;scene.add(ground);
   world.contactMaterial=new THREE.MeshBasicMaterial({map:world.textures.contact,transparent:true,depthWrite:false,opacity:.85,polygonOffset:true,polygonOffsetFactor:-1});
   for(const o of window.Blackout.OBSTACLES){
-    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(o.x2-o.x1+2,o.z2-o.z1+2),world.contactMaterial);mesh.rotation.x=-Math.PI/2;mesh.position.set((o.x1+o.x2)/2,-.034,(o.z1+o.z2)/2);scene.add(mesh);
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(o.x2-o.x1+2,o.z2-o.z1+2),world.contactMaterial);mesh.rotation.x=-Math.PI/2;mesh.position.set((o.x1+o.x2)/2,-.034,(o.z1+o.z2)/2);world.mapRoot.add(mesh);
   }
   // Soft emergency lighting and glossy shallow oil patches add depth without remote assets.
   for(const [x,z,color] of [[11.6,13.5,'#ffb16d'],[-14,17,'#ffd6a0'],[0,-19,'#b6e6b6']]){

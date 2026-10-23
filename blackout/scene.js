@@ -1,8 +1,8 @@
-import { applyMeleePose } from './melee-pose.js?v=4';
+import { applyMeleePose } from './melee-pose.js?v=5';
 import * as THREE from './vendor/three.module.min.js';
-import { applyWeaponPose, applyCameraPose, RED_SIGHT_CENTER, QUALITY } from './presentation.js?v=4';
-import { beveledBox, upgradeEnvironment, applyQuality } from './graphics.js?v=4';
-import { buildMeleeModels, updateMeleeArms, spawnBossActor, BossEffects } from './combat-visuals.js?v=4';
+import { applyWeaponPose, applyCameraPose, RED_SIGHT_CENTER, QUALITY } from './presentation.js?v=5';
+import { beveledBox, upgradeEnvironment, applyQuality } from './graphics.js?v=5';
+import { buildMeleeModels, updateMeleeArms, spawnBossActor, BossEffects } from './combat-visuals.js?v=5';
 const B = window.Blackout;
 const { OBSTACLES, GRID, TURRET, BOX, PORTALS, ENEMIES, direction, clamp } = B;
 const TAU = Math.PI * 2;
@@ -20,16 +20,18 @@ function part(parent, shape, size, position, color, rotation = [0, 0, 0], basic 
 }
 export class World {
   constructor(canvas, quality = 'low') {
-    this.canvas = canvas;
+    this.canvas = canvas;this.levelIndex=0;this.levelData=B.LEVELS[0];this.mapCache=new Map();
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.12;
     this.scene = new THREE.Scene(); this.scene.background = new THREE.Color('#243541'); this.scene.fog = new THREE.Fog('#49534f', 28, 78);
     this.camera = new THREE.PerspectiveCamera(78, 1, .055, 100); this.camera.rotation.order = 'YXZ'; this.scene.add(this.camera);
     this.scene.add(new THREE.HemisphereLight('#b5d3ed', '#626452', 1.15));
     const sun = this.sun = new THREE.DirectionalLight('#ffcf92', 3.1); sun.position.set(-13, 24, 9); this.scene.add(sun); sun.shadow.camera.left=-29;sun.shadow.camera.right=29;sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;sun.shadow.camera.near=.5;sun.shadow.camera.far=75;sun.shadow.bias=-.00025;sun.shadow.normalBias=.035;
+    this.mapRoot=new THREE.Group();this.scene.add(this.mapRoot);
     this.batches = new Map(); this.actors = new Map(); this.corpses = []; this.pickupModels = []; this.grenadeModels = new Map(); this.effects = []; this.tracers = [];
     this.lastWeapon = ''; this.lastOptic = ''; this.fov = 78; this.clock = 0; this.isMenu = true; this.quality = quality;
     this.buildDepot(); this.flushBatches(); this.buildFacilities(); this.buildWeapons(); this.buildParticles(); this.bossEffects=new BossEffects(this.scene); upgradeEnvironment(this); for(const [key,m]of materials)if(['#596865','#667672','#879289','#465b5b','#465f5b'].some(c=>key===c+'/false')){m.map=this.textures.concrete;m.roughness=.94;} applyQuality(this, quality);
+    this.mapCache.set(0,this.captureMap());this.applyLevelTheme();
     this.camera.position.set(19, 13, 22); this.camera.lookAt(0, .8, -3); this.renderer.compile(this.scene, this.camera);
   }
   staticPart(shape, size, position, color, rotation = [0, 0, 0], basic = false) {
@@ -38,16 +40,18 @@ export class World {
     const object = new THREE.Object3D(); object.position.set(...position); object.rotation.set(...rotation); object.scale.set(...size); object.updateMatrix(); this.batches.get(key).matrices.push(object.matrix.clone());
   }
   flushBatches() {
-    for (const { shape, color, basic, matrices } of this.batches.values()) { const batch = new THREE.InstancedMesh(geometries[shape], material(color, basic), matrices.length); matrices.forEach((m, i) => batch.setMatrixAt(i, m)); batch.instanceMatrix.needsUpdate = true; batch.computeBoundingSphere(); this.scene.add(batch); }
+    for (const { shape, color, basic, matrices } of this.batches.values()) { const batch = new THREE.InstancedMesh(geometries[shape], material(color, basic), matrices.length); matrices.forEach((m, i) => batch.setMatrixAt(i, m)); batch.instanceMatrix.needsUpdate = true; batch.computeBoundingSphere(); this.mapRoot.add(batch); }
     this.batches.clear();
   }
   sign(text, x, y, z, width = 4, height = .8, foreground = '#ecddb5', background = '#233a3c', rotation = 0) {
     const canvas = document.createElement('canvas'); canvas.width = 768; canvas.height = 160; const ctx = canvas.getContext('2d');
     ctx.fillStyle = background; ctx.fillRect(0, 0, 768, 160); ctx.strokeStyle = foreground; ctx.lineWidth = 3; ctx.strokeRect(12, 12, 744, 136); ctx.fillStyle = foreground; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 54px "Segoe UI","Microsoft YaHei",sans-serif'; ctx.fillText(text, 384, 81);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
-    const mesh = new THREE.Mesh(geometries.plane, new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })); mesh.position.set(x, y, z); mesh.scale.set(width, height, 1); mesh.rotation.y = rotation; this.scene.add(mesh); return mesh;
+    const mesh = new THREE.Mesh(geometries.plane, new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })); mesh.position.set(x, y, z); mesh.scale.set(width, height, 1); mesh.rotation.y = rotation; this.mapRoot.add(mesh); return mesh;
   }
   buildDepot() {
+    const {obstacles:OBSTACLES,box:BOX}=this.levelData;
+    if(this.levelIndex!==0){this.buildIndustrial();return;}
     const box = (size, pos, color, rotation) => this.staticPart('box', size, pos, color, rotation);
     box([36, .2, 44], [0, -.15, 0], '#38494d');
     for (let i = -3; i <= 3; i++) box([.055, .012, 40], [i * 4.5, -.038, 0], '#75816b');
@@ -83,11 +87,62 @@ export class World {
     this.sign('ϟ 配电箱 / POWER', BOX.x, 2.55, BOX.z + .38, 3.1, .55, '#eccc91');
     for (let z = -8; z < 14; z += 1.4) box([.035, .018, .9], [14.8, -.025, z], '#ac925e');
     for (let x = -12; x < 14.8; x += 1.4) box([.9, .018, .035], [x, -.025, 9], '#ac925e');
-    this.powerLamp = part(this.scene, 'sphere', [.16, .16, .16], [BOX.x, 2.02, BOX.z], '#db865a', [0, 0, 0], true);
+    this.powerLamp = part(this.mapRoot, 'sphere', [.16, .16, .16], [BOX.x, 2.02, BOX.z], '#db865a', [0, 0, 0], true);
     // Small environmental clutter, outside the movement routes.
     for (let i = 0; i < 12; i++) { const x = (i % 2 ? 1 : -1) * (15 + (i % 3) * .4), z = -15 + i * 2.6; this.staticPart('cylinder', [.23, .7, .23], [x, .35, z], i % 3 ? '#4b675b' : '#9c7552'); }
     for (const x of [-3.3, 3.3]) { box([.25, 4, .35], [x, 2, -19.3], '#69857a'); this.staticPart('box', [.1, 3.5, .1], [x, 1.8, -19.0], '#9c6c47', [0, 0, 0], true); }
     box([6.85, .3, .65], [0, 3.9, -19.3], '#465f5b'); this.sign('撤离出口 / EXIT ↑', 0, 4.6, -19.25, 6.2, .85, '#d0e4b1', '#264138');
+  }
+  captureMap(){
+    const refs={};for(const key of ['mapRoot','powerLamp','gate','exitZone','objectiveBeacon','gridFloor','gridWire','turret','turretHead','turretLamp','pickupModels','rain'])refs[key]=this[key];return refs;
+  }
+  setLevel(index){
+    if(index===this.levelIndex||!B.LEVELS[index])return;
+    this.reset();this.mapRoot.visible=false;this.levelIndex=index;this.levelData=B.LEVELS[index];
+    const cached=this.mapCache.get(index);
+    if(cached){Object.assign(this,cached);this.mapRoot.visible=true;}
+    else{
+      this.mapRoot=new THREE.Group();this.scene.add(this.mapRoot);this.pickupModels=[];this.rain=null;this.buildDepot();this.flushBatches();this.buildFacilities();
+      for(const o of this.levelData.obstacles){const mesh=new THREE.Mesh(new THREE.PlaneGeometry(o.x2-o.x1+2,o.z2-o.z1+2),this.contactMaterial);mesh.rotation.x=-Math.PI/2;mesh.position.set((o.x1+o.x2)/2,-.034,(o.z1+o.z2)/2);this.mapRoot.add(mesh);}
+      this.mapCache.set(index,this.captureMap());
+    }
+    this.applyLevelTheme();applyQuality(this,this.quality);
+  }
+  applyLevelTheme(){
+    const p=this.levelData.palette;this.sun.color.set(p.sun);this.scene.fog.color.set(p.fog);this.ground?.material.color.set(p.ground);
+    if(this.sky?.material.uniforms.topColor){this.sky.material.uniforms.sunStrength.value=this.levelIndex===1?.04:1;this.sky.material.uniforms.topColor.value.set(p.top);this.sky.material.uniforms.horizonColor.value.set(p.horizon);}
+  }
+  buildIndustrial(){
+    const level=this.levelData,harbor=this.levelIndex===1,box=(size,pos,color,rotation)=>this.staticPart('box',size,pos,color,rotation);
+    box([36,.2,44],[0,-.15,0],harbor?'#304957':'#594c46');
+    for(const x of [-18,18]){box([.35,1.2,44],[x,.55,0],harbor?'#435e68':'#6f6153');for(let z=-21;z<22;z+=3)box([.12,3,.12],[x,1.5,z],'#879597');}
+    box([36,1.2,.4],[0,.55,22],'#4c6165');for(const x of [-11,11])box([14,1.4,.4],[x,.65,-22],'#52686a');
+    for(let z=-17;z<18;z+=3){box([.10,.015,1.5],[0,-.025,z],'#b7b29a');for(const x of [-14,14])box([1,.02,.10],[x,-.02,z],'#d6aa58');}
+    for(const o of level.obstacles){
+      const x=(o.x1+o.x2)/2,z=(o.z1+o.z2)/2,w=o.x2-o.x1,d=o.z2-o.z1;
+      if(o.id.startsWith('container')){
+        const color=o.id.includes('east')?'#7b6650':o.id.includes('cross')?'#385e6d':'#547c79';box([w,o.height,d],[x,o.height/2,z],color);
+        for(let zz=o.z1+.3;zz<o.z2;zz+=.6)for(const side of [-1,1])box([.065,o.height-.18,.08],[x+side*(w/2+.025),o.height/2,zz],'#8b9c96');
+        box([w+.1,.12,d+.1],[x,o.height,z],'#91a5a1');this.sign('CARGO / '+o.id.slice(-4).toUpperCase(),x,1.8,o.z2+.04,w*.8,.4,'#c7d7c7','#294650');
+      }else if(o.id.startsWith('transformer')||o.id.startsWith('reactor')){
+        const reactor=o.id.startsWith('reactor');box([w,o.height,d],[x,o.height/2,z],reactor?'#665149':'#596766');box([w+.2,.16,d+.2],[x,.1,z],'#8c8f7a');
+        for(let i=0;i<6;i++)box([w+.06,.085,d+.06],[x,.4+i*.3,z],'#344c51');
+        for(const dx of [-w*.3,w*.3]){this.staticPart('cylinder',[.24,.65,.24],[x+dx,o.height+.32,z],'#9caa95');for(let i=0;i<4;i++)this.staticPart('cylinder',[.33,.055,.33],[x+dx,o.height+.12+i*.13,z],'#a6b79e');}
+        this.staticPart('box',[w*.55,.18,.04],[x,o.height*.65,o.z2+.04],reactor?'#f29b56':'#a0cbd4',[0,0,0],true);
+      }else{box([w,o.height,d],[x,o.height/2,z],o.height<1?'#8b9082':'#7e7762');for(const xx of [o.x1+.2,o.x2-.2])box([.12,o.height+.02,d+.04],[xx,o.height/2,z],'#c4aa78');}
+    }
+    const b=level.box;box([1.25,1.9,.65],[b.x,.99,b.z],'#526b65');box([1.1,1.65,.035],[b.x,1,b.z+.35],'#213b3b');this.sign('ϟ 供电控制 / POWER',b.x,2.5,b.z+.38,3.8,.55,'#eccc91');this.powerLamp=part(this.mapRoot,'sphere',[.16,.16,.16],[b.x,2.02,b.z],'#db865a',[0,0,0],true);
+    for(const x of [-3.3,3.3])box([.25,4,.35],[x,2,-19.3],'#8e9c90');box([6.85,.3,.65],[0,3.9,-19.3],'#566765');this.sign(harbor?'登船通道 / PIER 03':'撤离通道 / DAWN',0,4.6,-19.25,6.2,.85,'#d0e4b1','#264138');
+    this.sign('0'+(this.levelIndex+1)+' / '+level.name,0,4,19.8,10,.9,harbor?'#a9d2e0':'#ecc5a1','#243943',Math.PI);
+    if(harbor){
+      const rainGeometry=new THREE.BufferGeometry(),rainPoints=[];for(let i=0;i<300;i++){const x=Math.sin(i*73.13)*17,z=Math.cos(i*17.29)*21,y=(i*1.73)%21;rainPoints.push(x,y,z,x-.15,y-.75,z+.05);}rainGeometry.setAttribute('position',new THREE.Float32BufferAttribute(rainPoints,3));this.rain=new THREE.LineSegments(rainGeometry,new THREE.LineBasicMaterial({color:'#9ebccc',transparent:true,opacity:.22,depthWrite:false}));this.mapRoot.add(this.rain);
+      box([120,.1,28],[0,-.18,-39],'#214854');for(let x=-36;x<37;x+=9){box([.18,15,.2],[x,7.5,-29],'#668595');box([11,.22,.22],[x+4,14,-29],'#80989b');box([.05,10,.05],[x+8,9,-29],'#c2ad84');}
+      for(const x of [-28,27])for(let i=0;i<5;i++)box([7,3.5,8],[x,1.75+i%2*3.5,12-i*9],i%2?'#456b6f':'#696c5a');
+    }else{
+      for(const x of [-26,26]){this.staticPart('cylinder',[3,14,3],[x,7,-15],'#4a5c60');for(let y=2;y<15;y+=3)this.staticPart('cylinder',[3.1,.25,3.1],[x,y,-15],'#a17d5b');box([1,10,1],[x,5,8],'#59665e');}
+      for(let x=-15;x<16;x+=6){box([.2,9,.2],[x,4.5,-25],'#586b67');box([5.5,.2,.2],[x,8,-25],'#bc9a6c');}
+    }
+    for(const [x,z]of [[-15,15],[15,-16],[-14,-16],[14,17]]){box([.12,6,.12],[x,3,z],'#8a9a8d');box([1.5,.2,.7],[x,6,z],'#43595c');this.staticPart('box',[1.25,.06,.5],[x,5.87,z],harbor?'#b3d4df':'#ffd39c',[0,0,0],true);}
   }
   bus(o, index) {
     const horizontal = o.id === 'bus-south', x = (o.x1 + o.x2) / 2, z = (o.z1 + o.z2) / 2, length = horizontal ? o.x2 - o.x1 : o.z2 - o.z1, width = horizontal ? o.z2 - o.z1 : o.x2 - o.x1, yaw = horizontal ? Math.PI / 2 : 0;
@@ -114,26 +169,27 @@ export class World {
     if (!horizontal) this.sign(`0${index + 1} / 暂停运营`, x, 2.57, z - length / 2 - .06, width * .7, .28, '#d1b879', '#18343b', Math.PI);
   }
   buildFacilities() {
-    this.gate = new THREE.Group(); this.gate.position.set(0, 0, -19.28); this.scene.add(this.gate);
+    const {box:BOX,grid:GRID,turret:TURRET,pickups}=this.levelData;
+    this.gate = new THREE.Group(); this.gate.position.set(0, 0, -19.28); this.mapRoot.add(this.gate);
     for (let i = -5; i <= 5; i++) part(this.gate, 'box', [.09, 3.6, .14], [i * .56, 1.8, 0], '#8b9d8b');
     for (const y of [.65, 2.9]) part(this.gate, 'box', [6, .12, .17], [0, y, 0], '#607e74');
     const exitMat = new THREE.MeshBasicMaterial({ color: '#b9e99b', transparent: true, opacity: .12, depthWrite: false });
-    this.exitZone = part(this.scene, 'box', [5.1, .04, 2.7], [0, -.015, -20.5], exitMat); this.exitZone.visible = false;
-    this.objectiveBeacon = part(this.scene, 'cylinder', [.07, 6, .07], [BOX.x, 3, BOX.z], new THREE.MeshBasicMaterial({ color: '#ffd08c', transparent: true, opacity: .5, depthWrite: false })); this.objectiveBeacon.visible = false;
-    this.gridFloor = part(this.scene, 'box', [GRID.x2 - GRID.x1, .025, GRID.z2 - GRID.z1], [(GRID.x1 + GRID.x2) / 2, -.01, (GRID.z1 + GRID.z2) / 2], new THREE.MeshBasicMaterial({ color: '#71dce9', transparent: true, opacity: .08, depthWrite: false }));
-    for (const x of [GRID.x1, GRID.x2]) for (const z of [GRID.z1, GRID.z2]) { part(this.scene, 'cylinder', [.08, 1.3, .08], [x, .65, z], '#5f7c7b'); part(this.scene, 'sphere', [.12, .12, .12], [x, 1.36, z], '#7da7ab', [0, 0, 0], true); }
-    this.gridWire = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#a6f6ff', transparent: true, opacity: .9 })); this.scene.add(this.gridWire); this.gridWire.visible = false;
+    this.exitZone = part(this.mapRoot, 'box', [5.1, .04, 2.7], [0, -.015, -20.5], exitMat); this.exitZone.visible = false;
+    this.objectiveBeacon = part(this.mapRoot, 'cylinder', [.07, 6, .07], [BOX.x, 3, BOX.z], new THREE.MeshBasicMaterial({ color: '#ffd08c', transparent: true, opacity: .5, depthWrite: false })); this.objectiveBeacon.visible = false;
+    this.gridFloor = part(this.mapRoot, 'box', [GRID.x2 - GRID.x1, .025, GRID.z2 - GRID.z1], [(GRID.x1 + GRID.x2) / 2, -.01, (GRID.z1 + GRID.z2) / 2], new THREE.MeshBasicMaterial({ color: '#71dce9', transparent: true, opacity: .08, depthWrite: false }));
+    for (const x of [GRID.x1, GRID.x2]) for (const z of [GRID.z1, GRID.z2]) { part(this.mapRoot, 'cylinder', [.08, 1.3, .08], [x, .65, z], '#5f7c7b'); part(this.mapRoot, 'sphere', [.12, .12, .12], [x, 1.36, z], '#7da7ab', [0, 0, 0], true); }
+    this.gridWire = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#a6f6ff', transparent: true, opacity: .9 })); this.mapRoot.add(this.gridWire); this.gridWire.visible = false;
     const wirePoints = [];
     for (let k = 0; k < 6; k++) { const z = GRID.z1 + k / 5 * (GRID.z2 - GRID.z1); for (let i = 0; i < 6; i++) { const a = i / 6, b = (i + 1) / 6; wirePoints.push(GRID.x1 + a * (GRID.x2 - GRID.x1), .3 + (i % 2) * .22, z, GRID.x1 + b * (GRID.x2 - GRID.x1), .3 + ((i + 1) % 2) * .22, z); } }
     this.gridWire.geometry.setAttribute('position', new THREE.Float32BufferAttribute(wirePoints, 3));
-    this.turret = new THREE.Group(); this.turret.position.set(TURRET.x, 0, TURRET.z); this.scene.add(this.turret);
+    this.turret = new THREE.Group(); this.turret.position.set(TURRET.x, 0, TURRET.z); this.mapRoot.add(this.turret);
     part(this.turret, 'cylinder', [.5, .3, .5], [0, .15, 0], '#3a5254'); part(this.turret, 'cylinder', [.14, 1, .14], [0, .7, 0], '#8d9d82');
     for (let i = 0; i < 3; i++) part(this.turret, 'box', [.09, .1, 1.2], [Math.sin(i * TAU / 3) * .25, .1, Math.cos(i * TAU / 3) * .25], '#87967d', [0, i * TAU / 3, 0]);
     this.turretHead = new THREE.Group(); this.turretHead.position.y = 1.2; this.turret.add(this.turretHead);
     part(this.turretHead, 'box', [.55, .45, .9], [0, 0, 0], '#688368'); part(this.turretHead, 'box', [.15, .14, .9], [0, .05, -.8], '#243d45');
     this.turretLamp = part(this.turretHead, 'sphere', [.055, .055, .055], [.25, .18, -.3], '#9c6f52', [0, 0, 0], true);
-    for (const pickup of B.PICKUPS) {
-      const group = new THREE.Group(); group.position.set(pickup.x, 0, pickup.z); this.scene.add(group);
+    for (const pickup of pickups) {
+      const group = new THREE.Group(); group.position.set(pickup.x, 0, pickup.z); this.mapRoot.add(group);
       part(group, 'box', [.64, .45, .42], [0, .23, 0], pickup.type === 'ammo' ? '#8b9a63' : '#b1b29c');
       if (pickup.type === 'health') { part(group, 'box', [.13, .23, .02], [0, .27, .22], '#d98065', [0, 0, 0], true); part(group, 'box', [.3, .07, .025], [0, .27, .22], '#d98065', [0, 0, 0], true); }
       else for (let i = -1; i <= 1; i++) part(group, 'box', [.05, .17, .025], [i * .13, .27, .22], '#cfc49a');
@@ -224,6 +280,7 @@ export class World {
     for (let i = 0; i < count && this.effects.length < 210; i++) this.effects.push({ x, y, z, vx: (Math.random() - .5) * speed, vy: Math.random() * speed, vz: (Math.random() - .5) * speed, life: .25 + Math.random() * .4, color: new THREE.Color(color) });
   }
   handleEvents(events) {
+    const TURRET=this.levelData.turret;
     for (const event of events) {
       this.bossEffects.event(event);
       if(event.type==='bossdown')this.burst(event.x,2,event.z,'#e4b17a',60,7);
@@ -285,7 +342,7 @@ export class World {
     this.pickupModels.forEach((obj, i) => { obj.visible = !game.pickups[i].taken; obj.userData.glow.position.y = .8 + Math.sin(now * 3 + i) * .08; });
     this.powerLamp.material.color.set(game.facility ? '#b7df9a' : '#db865a'); this.turretLamp.material.color.set(game.facility === 'turret' && game.turretAmmo > 0 ? '#c6ecac' : '#9c6f52');
     this.gridFloor.material.opacity = game.facility === 'grid' ? .12 + game.gridFlash * .4 : .025; this.gridWire.visible = game.facility === 'grid' && game.gridFlash > 0;
-    this.gate.position.y += ((game.gateOpen ? 4.1 : game.stage === 'evac' ? (18 - game.gateTime) / 18 * 2.2 : 0) - this.gate.position.y) * Math.min(1, dt * 3);
+    this.gate.position.y += ((game.gateOpen ? 4.1 : game.stage === 'evac' ? (game.level.evacSeconds - game.gateTime) / game.level.evacSeconds * 2.2 : 0) - this.gate.position.y) * Math.min(1, dt * 3);
     this.exitZone.visible = game.gateOpen; this.exitZone.material.opacity = .16 + Math.sin(now * 4) * .04;
     const objective = game.objectivePoint; this.objectiveBeacon.visible = !!objective;
     if (objective) { this.objectiveBeacon.position.set(objective.x, 3, objective.z); this.objectiveBeacon.material.color.set(game.stage === 'facilityTravel' ? '#ffd08c' : '#b7ed9a'); this.objectiveBeacon.material.opacity = .23 + Math.sin(now * 3) * .1; }
@@ -293,6 +350,7 @@ export class World {
     for (const p of this.effects) { p.life -= dt; p.vy -= dt * 6; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; const i = n++ * 3; this.particlePositions[i] = p.x; this.particlePositions[i + 1] = p.y; this.particlePositions[i + 2] = p.z; this.particleColors[i] = p.color.r * Math.min(1, p.life * 3); this.particleColors[i + 1] = p.color.g * Math.min(1, p.life * 3); this.particleColors[i + 2] = p.color.b * Math.min(1, p.life * 3); }
     this.particlePoints.geometry.setDrawRange(0, n); this.particlePoints.geometry.attributes.position.needsUpdate = true; this.particlePoints.geometry.attributes.color.needsUpdate = true;
     this.tracers = this.tracers.filter(t => t.life > 0).slice(-24); n = 0; for (const t of this.tracers) { t.life -= dt; this.tracePositions.set([...t.from, ...t.to], n++ * 6); } this.traceLines.geometry.setDrawRange(0, n * 2); this.traceLines.geometry.attributes.position.needsUpdate = true;
+    if(this.rain)this.rain.position.y=-(now*7)%7;
     this.sky.position.copy(this.camera.position);this.renderer.render(this.scene, this.camera);
     if(this.viewRoot.visible){this.renderer.autoClear=false;this.renderer.clearDepth();this.renderer.render(this.weaponScene,this.weaponCamera);this.renderer.autoClear=true;}
   }

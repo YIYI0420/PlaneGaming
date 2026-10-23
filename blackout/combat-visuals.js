@@ -50,7 +50,7 @@ export function updateMeleeArms(world,id,heavy=false){
 }
 
 export function spawnBossActor(world,enemy,part) {
-  const group=new THREE.Group(),bodyColor='#4d5e65';
+  const group=new THREE.Group(),bodyColor=world.levelData?.bossColor||'#4d5e65';
   const bodyMat=new THREE.MeshStandardMaterial({color:bodyColor,metalness:.4,roughness:.57});
   const skinMat=new THREE.MeshStandardMaterial({color:'#8a8e70',roughness:.88});
   const coreMat=new THREE.MeshStandardMaterial({color:'#e9a570',emissive:'#ec5e30',emissiveIntensity:1.1,roughness:.3});

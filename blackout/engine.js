@@ -43,6 +43,15 @@
   const TURRET = { x: 11.7, z: 8.4 };
   const PORTALS = [{ x: -16.4, z: -5.8 }, { x: 16.4, z: -7.5 }, { x: 0, z: -17.8 }];
   const PICKUPS = [{ id: 0, type: 'ammo', x: -12.0, z: 2.5 }, { id: 1, type: 'ammo', x: 12.7, z: 4.6 }, { id: 2, type: 'health', x: -2.7, z: -11.4 }];
+  const LEVELS=[
+    {id:'depot',name:'公交总站',subtitle:'在停车通道建立防线',story:'最后一班车不会来了。接通电力，穿过感染者的包围，离开总站。',obstacles:OBSTACLES,box:BOX,grid:GRID,turret:TURRET,portals:PORTALS,pickups:PICKUPS,gate:GATE,exit:EXIT,waves:[[8,0,0],[12,3,0],[14,4,1]],bossName:'守门者',bossHp:9600,bossColor:'#4d5e65',bossSkills:['toxic','charge','slam'],toxicExtra:0,shockPhase:2,skillRate:1,evacSeconds:18,palette:{top:'#0e1a2b',horizon:'#70614a',fog:'#49534f',sun:'#ffcf92',ground:'#89918c'}},
+    {id:'harbor',name:'雨夜货运码头',subtitle:'绕行集装箱，躲避连环冲撞',story:'撤离船的信号来自码头。穿过集装箱堆场，恢复航标，击退潮噬者。',
+     obstacles:[{id:'container-west',x1:-12,x2:-8,z1:-11,z2:1,height:3.2},{id:'container-east',x1:6,x2:10,z1:-4,z2:9,height:3.2},{id:'container-cross',x1:-11,x2:-3,z1:6,z2:9,height:2.8},{id:'cover-center',x1:-1.8,x2:1.8,z1:-5,z2:-4.1,height:.7},{id:'crates-east',x1:12,x2:14,z1:-13,z2:-10,height:1.4},{id:'crates-west',x1:-15,x2:-13,z1:2,z2:4,height:1.2}],
+     box:{x:-11.5,z:13},grid:{x1:11,x2:15,z1:-8,z2:-1},turret:{x:-11,z:10.2},portals:[{x:-16.4,z:-6},{x:16.4,z:-5},{x:0,z:-17.8}],pickups:[{id:0,type:'ammo',x:-4.5,z:2.5},{id:1,type:'ammo',x:13,z:4.6},{id:2,type:'health',x:2.7,z:-11.4}],gate:GATE,exit:EXIT,waves:[[9,3,0],[13,5,1],[15,7,2]],bossName:'潮噬者',bossHp:10800,bossColor:'#315f76',bossSkills:['charge','toxic','charge','slam'],toxicExtra:1,shockPhase:2,skillRate:.94,evacSeconds:21,palette:{top:'#071222',horizon:'#284656',fog:'#284651',sun:'#8fcde5',ground:'#607c8b'}},
+    {id:'reactor',name:'熔核供电站',subtitle:'突破护甲尸潮，终结熔核暴君',story:'城市的应急电源即将失控。绕过变压器，恢复控制台，在最后的通道里迎接黎明。',
+     obstacles:[{id:'transformer-west',x1:-12,x2:-7,z1:-9,z2:-2,height:2.7},{id:'transformer-east',x1:7,x2:12,z1:1,z2:7,height:2.7},{id:'reactor-west',x1:-11,x2:-6,z1:5,z2:9,height:3.1},{id:'reactor-east',x1:7,x2:12,z1:-14,z2:-10,height:3.1},{id:'cover-left',x1:-4,x2:-1,z1:1,z2:1.9,height:.7},{id:'cover-right',x1:1,x2:4,z1:-8,z2:-7.1,height:.7},{id:'crates-east',x1:13,x2:15,z1:10,z2:12,height:1.2}],
+     box:{x:11.5,z:14},grid:{x1:-15,x2:-11,z1:-12,z2:-4},turret:{x:12.5,z:8.8},portals:[{x:-16.4,z:-5.8},{x:16.4,z:-7.5},{x:0,z:-17.8}],pickups:[{id:0,type:'ammo',x:-13,z:1.5},{id:1,type:'ammo',x:4.8,z:8.8},{id:2,type:'health',x:-3,z:-12}],gate:GATE,exit:EXIT,waves:[[10,3,1],[14,6,3],[17,8,4]],bossName:'熔核暴君',bossHp:13200,bossColor:'#795044',bossSkills:['slam','charge','toxic','slam'],toxicExtra:1,shockPhase:1,skillRate:.85,evacSeconds:24,palette:{top:'#1c1520',horizon:'#74452f',fog:'#57483e',sun:'#ffb078',ground:'#8b7970'}}
+  ];
   function rayBox(origin, direction, box) {
     let tmin = 0, tmax = Infinity;
     for (const [axis, lo, hi] of [['x', box.x1, box.x2], ['y', box.y1 ?? 0, box.height ?? box.y2], ['z', box.z1, box.z2]]) {
@@ -61,6 +70,7 @@
   function formatTime(seconds) { const whole = Math.floor(seconds); return `${String(Math.floor(whole / 60)).padStart(2, '0')}:${String(whole % 60).padStart(2, '0')}`; }
   class Game {
     constructor(options = {}) {
+      this.levelIndex=Number.isInteger(options.level)&&options.level>=0&&options.level<LEVELS.length?options.level:0;this.level=LEVELS[this.levelIndex];
       this.seed = options.seed || 1937; this.stage = 'tutorial'; this.paused = false; this.time = 0; this.stageTime = 0; this.wave = 0; this.spawned = 0;
       this.player = { x: 0, z: 15.6, y: 1.65, feet: 0, vy: 0, grounded: true, yaw: 0, pitch: -.015, hp: 100, hitCooldown: 0, recoil: 0, stamina:100,sprinting:false,exhausted:false,recovery:0 };
       this.mode = options.mode === 'bossTraining' ? 'bossTraining' : 'campaign'; this.melee = Object.hasOwn(MELEE,options.melee) ? options.melee : 'combat';
@@ -69,7 +79,7 @@
       this.weapon = 'rifle'; this.ammo = { rifle: WEAPONS[this.primary].mag, pistol: 12 }; this.reserve = WEAPONS[this.primary].reserve; this.reloadTime = 0; this.reloadDuration = 0; this.fireCooldown = 0; this.grenades = 2; this.grenadeCooldown = 0;
       this.enemies = []; this.projectiles = []; this.nextId = 1; this.events = []; this.queue = []; this.spawnTimer = 0;
       this.facility = null; this.perk = null; this.turretAmmo = 120; this.turretTimer = 0; this.gridTimer = .8; this.gridFlash = 0;
-      this.gateTime = 18; this.gateOpen = false; this.reinforcementTimer = 2; this.pickups = PICKUPS.map(p => ({ ...p, taken: false }));
+      this.gateTime = this.level.evacSeconds; this.gateOpen = false; this.reinforcementTimer = 2; this.pickups = this.level.pickups.map(p => ({ ...p, taken: false }));
       this.stats = { kills: 0, playerKills: 0, headshots: 0, facilityKills: 0, assists: 0, facilityDamage: 0, shots: 0, hits: 0, damageTaken: 0, grenadesUsed: 0, meleeKills:0,swings:0,heavySwings:0,bossDamage:0 };
       this.notice = '左侧移动，右侧转向；敌人进入准星后可射击'; this.noticeTime = 7; this.result = null;
       this.flow = null; this.flowTimer = 0; this.goalCell = ''; this.setWaveQueue(0);
@@ -79,28 +89,30 @@
     drainEvents() { const e = this.events; this.events = []; return e; }
     notify(text, seconds = 3) { this.notice = text; this.noticeTime = seconds; this.event('notice', { text }); }
     setStage(stage) { this.stage = stage; this.stageTime = 0; this.event('stage', { stage }); }
-    get obstacles() { return this.gateOpen ? OBSTACLES : [...OBSTACLES, GATE]; }
+    get obstacles() { return this.gateOpen ? this.level.obstacles : [...this.level.obstacles, this.level.gate]; }
     get activeCombat() { return ['wave', 'boss', 'evac', 'escape'].includes(this.stage); }
     get weaponInfo() { return this.weapon === 'melee' ? MELEE[this.melee] : WEAPONS[this.weapon === 'rifle' ? this.primary : 'pistol']; }
     get boss() { return this.enemies.find(e=>e.kind==='boss'&&!e.dead) || null; }
-    get bossStatus() { const b=this.boss;if(!b)return '';if(this.stage==='bossIntro')return '守门者逼近 · 准备战斗';if(b.transition>0)return '护甲重组 · 随从即将入场';if(b.exposed>0)return `弱点暴露 ${b.exposed.toFixed(1)} 秒 · 集火头部`;return b.skill?({slam:b.phaseNumber>=2?'双重震地 · 跳跃后注意第二道冲击波':'震地蓄力 · 离开圆圈或跳跃',charge:b.skill.chain?'连环冲撞 · 锁定后横向躲避':'冲撞锁定 · 引诱撞墙',toxic:'毒液落点 · 离开预警区',rush:'冲撞中 · 保持横向移动'}[b.skill.type]):'护甲防守 · 引诱撞墙 / 重击破势'; }
+    get bossStatus() { const b=this.boss;if(!b)return '';if(this.stage==='bossIntro')return this.level.bossName+'逼近 · 准备战斗';if(b.transition>0)return '护甲重组 · 随从即将入场';if(b.exposed>0)return `弱点暴露 ${b.exposed.toFixed(1)} 秒 · 集火头部`;return b.skill?({slam:b.phaseNumber>=this.level.shockPhase?'双重震地 · 跳跃后注意第二道冲击波':'震地蓄力 · 离开圆圈或跳跃',charge:b.skill.chain?'连环冲撞 · 锁定后横向躲避':'冲撞锁定 · 引诱撞墙',toxic:'毒液落点 · 离开预警区',rush:'冲撞中 · 保持横向移动'}[b.skill.type]):'护甲防守 · 引诱撞墙 / 重击破势'; }
     get zoom() { return this.aiming ? (this.weapon === 'rifle' ? OPTICS[this.optic].zoom : 1.25) : 1; }
     get frozen() { return this.paused || ['facilityChoice', 'perkChoice', 'won', 'lost'].includes(this.stage); }
     get remaining() { return this.enemies.filter(e => !e.dead).length + this.queue.length; }
     get objective() {
-      return { tutorial: '熟悉操作，即将开始第一波', wave: `清除第 ${this.wave} 波 · 剩余 ${this.remaining}`, facilityTravel: '前往东南配电箱 · 选择供电设施', facilityChoice: '选择一种防守设施', perkChoice: '选择本局强化', bossIntro:'最终首领 · 守门者正在进入总站',boss:'击败守门者 · 躲避地面预警',gateTravel: this.stageTime < 6 ? '区域清空 · 补给并准备撤离' : '前往北侧闸门 · 启动开门', evac: `守住 ${Math.ceil(this.gateTime)} 秒 · 闸门正在开启`, escape: '闸门已开启 · 进入绿色撤离区', won: '撤离成功', lost: '任务失败' }[this.stage];
+      return { tutorial: '熟悉操作，即将开始第一波', wave: `清除第 ${this.wave} 波 · 剩余 ${this.remaining}`, facilityTravel: '前往标记配电箱 · 选择供电设施', facilityChoice: '选择一种防守设施', perkChoice: '选择本局强化', bossIntro:`区域首领 · ${this.level.bossName}正在入场`,boss:`击败${this.level.bossName} · 躲避地面预警`,gateTravel: this.stageTime < 6 ? '区域清空 · 补给并准备撤离' : '前往北侧闸门 · 启动开门', evac: `守住 ${Math.ceil(this.gateTime)} 秒 · 闸门正在开启`, escape: '闸门已开启 · 进入绿色撤离区', won: '撤离成功', lost: '任务失败' }[this.stage];
     }
-    get objectivePoint() { if (this.stage === 'facilityTravel') return BOX; if (['gateTravel', 'evac', 'escape'].includes(this.stage)) return EXIT; return null; }
+    get objectivePoint() { if (this.stage === 'facilityTravel') return this.level.box; if (['gateTravel', 'evac', 'escape'].includes(this.stage)) return this.level.exit; return null; }
     get interaction() {
-      if (this.stage === 'facilityTravel' && distance(this.player, BOX) < 2.8) return '连接配电箱';
-      if (this.stage === 'gateTravel' && this.stageTime >= 6 && distance(this.player, EXIT) < 4.5) return '启动撤离闸门';
+      if (this.stage === 'facilityTravel' && distance(this.player, this.level.box) < 2.8) return '连接配电箱';
+      if (this.stage === 'gateTravel' && this.stageTime >= 6 && distance(this.player, this.level.exit) < 4.5) return '启动撤离闸门';
       return '';
     }
     pause() { if (!['won', 'lost'].includes(this.stage)) this.paused = true; }
     resume() { this.paused = false; }
     look(dx, dy) { if (this.frozen) return; this.player.yaw += dx; this.player.pitch = clamp(this.player.pitch + dy, -1.05, .95); }
     setWaveQueue(wave) {
-      const types = wave === 1 ? Array(8).fill('walker') : wave === 2 ? ['walker', 'walker', 'runner', ...Array(5).fill('walker'), 'runner', ...Array(5).fill('walker'), 'runner'] : wave === 3 ? ['walker', 'walker', 'runner', ...Array(4).fill('walker'), 'runner', 'walker', 'armor', ...Array(3).fill('walker'), 'runner', ...Array(4).fill('walker'), 'runner'] : [];
+      const counts=this.level.waves[wave-1]||[0,0,0],types=[];
+      // Interleave threats so runners and armored units arrive throughout the wave.
+      const left=[...counts];while(left.some(n=>n>0)){for(const [i,kind]of ['walker','runner','armor'].entries()){const batch=i===0?3:1;for(let j=0;j<batch&&left[i]>0;j++){types.push(kind);left[i]--;}}}
       this.queue = types; this.spawned = 0;
     }
     startWave(wave) {
@@ -111,7 +123,7 @@
     interact() {
       if (!this.interaction || this.frozen) return false;
       if (this.stage === 'facilityTravel') this.setStage('facilityChoice');
-      else if (this.stage === 'gateTravel') { this.setStage('evac'); this.gateTime = 18; this.reinforcementTimer = 2; this.notify('闸门开启中，保持移动！', 4); }
+      else if (this.stage === 'gateTravel') { this.setStage('evac'); this.gateTime = this.level.evacSeconds; this.reinforcementTimer = 2; this.notify('闸门开启中，保持移动！', 4); }
       return true;
     }
     resupply() { this.player.hp = Math.min(100, this.player.hp + 18); this.reserve = Math.min(WEAPONS[this.primary].cap, this.reserve + WEAPONS[this.primary].supply); }
@@ -261,7 +273,7 @@
       if(e.kind==='boss'){
         this.bossDefeated=true;this.hazards=[];
         for(const add of this.enemies)if(add!==e&&!add.dead){add.dead=true;this.event('death',{id:add.id,x:add.x,z:add.z,kind:add.kind,head:false});}
-        this.event('bossdown',{x:e.x,z:e.z});this.notify('守门者已倒下 · 前往出口撤离',5);
+        this.event('bossdown',{x:e.x,z:e.z});this.notify(this.level.bossName+'已倒下 · 前往出口撤离',5);
       }
       if(source==='facility')this.stats.facilityKills++;else{this.stats.playerKills++;if(head)this.stats.headshots++;if(this.time-e.facilityAt<4)this.stats.assists++;}
       this.event('death',{id:e.id,x:e.x,z:e.z,kind:e.kind,head});
@@ -280,7 +292,7 @@
       }
     }
     spawn(kind) {
-      const portal = PORTALS[this.spawned % PORTALS.length]; const e = { id: this.nextId++, kind, x: portal.x + (this.random() - .5) * .7, z: portal.z + (this.random() - .5) * .7, hp: ENEMIES[kind].hp, maxHp: ENEMIES[kind].hp, fx: 0, fz: 1, cooldown: .6, windup: 0, slow: 0, slowFactor: 1, hit: 0, phase: this.random() * 6.28, facilityAt: -100, dead: false };
+      const portal = this.level.portals[this.spawned % this.level.portals.length]; const e = { id: this.nextId++, kind, x: portal.x + (this.random() - .5) * .7, z: portal.z + (this.random() - .5) * .7, hp: ENEMIES[kind].hp, maxHp: ENEMIES[kind].hp, fx: 0, fz: 1, cooldown: .6, windup: 0, slow: 0, slowFactor: 1, hit: 0, phase: this.random() * 6.28, facilityAt: -100, dead: false };
       this.enemies.push(e); this.spawned++; this.event('spawn', { id: e.id, kind, x: e.x, z: e.z }); if (kind === 'runner') this.notify('奔袭者进入总站 · 优先处理', 2); if (kind === 'armor') this.notify('护甲目标出现 · 瞄准暴露头部', 4); return e;
     }
     startBossEncounter() {
@@ -289,7 +301,8 @@
       this.player.hp=Math.min(100,this.player.hp+40);this.reserve=WEAPONS[this.primary].cap;this.player.stamina=100;
       if(this.mode==='bossTraining'){this.player.x=0;this.player.z=6;}
       const boss=this.spawn('boss');Object.assign(boss,{x:0,z:-14,skill:null,skillCooldown:2.5,skillIndex:0,enraged:false,phaseNumber:1,transition:0,stun:0,stagger:0,exposed:0,supplyTimer:14});
-      this.setStage('bossIntro');this.notify('守门者 / 9600 生命 · 三阶段，技能后集火发光弱点',5);this.event('bossintro');return true;
+      boss.hp=boss.maxHp=this.level.bossHp;
+      this.setStage('bossIntro');this.notify(this.level.bossName+' / '+boss.maxHp+' 生命 · 三阶段，技能后集火发光弱点',5);this.event('bossintro');return true;
     }
     beginBossSkill(b,type,chain=0) {
       if(b.dead||b.transition>0||this.stage!=='boss')return false;
@@ -297,14 +310,14 @@
       b.fx=dx/len;b.fz=dz/len;b.windup=0;
       const warning=type==='slam'?(b.enraged?1:1.2):type==='charge'?(chain?.7:b.enraged?.8:1.05):1;
       b.skill={type,timer:warning,duration:warning,chain,x:b.x,z:b.z,dx:dx/len,dz:dz/len,length:Math.min(18,len+3),radius:5.5,hit:false};
-      if(type==='toxic')for(let i=0;i<b.phaseNumber+2;i++){
+      if(type==='toxic')for(let i=0;i<b.phaseNumber+2+this.level.toxicExtra;i++){
         const angle=i*2.4;this.hazards.push({id:this.nextId++,type:'toxic',x:clamp(this.player.x+(i?Math.cos(angle)*2.3:0),-16,16),z:clamp(this.player.z+(i?Math.sin(angle)*2.3:0),-20,20),radius:b.enraged?1.8:1.65,warning:1.65,life:5,tick:0});
       }
       this.hazards=this.hazards.slice(-12);
       this.notify(({slam:'震地蓄力！离开红圈或起跳',charge:chain?'二次冲撞！再次横向闪避':'冲撞锁定！横向奔跑躲避',toxic:'毒液落点！离开地面预警'})[type],2.5);this.event('bossskill',{skill:type,x:b.x,z:b.z});return true;
     }
     finishBossSkill(b,wall=false){
-      b.skill=null;b.windup=0;b.exposed=wall?3:b.phaseNumber===3?1.5:2;b.stun=wall?.7:0;b.skillCooldown=b.exposed+(b.phaseNumber===3?1.7:b.phaseNumber===2?2.2:2.7);
+      b.skill=null;b.windup=0;b.exposed=wall?3:b.phaseNumber===3?1.5:2;b.stun=wall?.7:0;b.skillCooldown=b.exposed+(b.phaseNumber===3?1.7:b.phaseNumber===2?2.2:2.7)*this.level.skillRate;
       if(wall){this.notify('冲撞撞墙！弱点暴露 3 秒',3);this.event('bossstagger');}
     }
     updateBoss(b,dt) {
@@ -330,14 +343,14 @@
           if(s.type==='slam'){
             if(distance(b,this.player)<s.radius&&this.player.feet<.5&&this.lineClear(b,this.player,.9))this.hurt(28);
             this.event('bossslam',{x:b.x,z:b.z,radius:s.radius});
-            if(b.phaseNumber>=2)this.hazards.push({id:this.nextId++,type:'shockwave',x:b.x,z:b.z,radius:.1,maxRadius:b.enraged?9:8,warning:.65,life:2,tick:0,hit:false});
+            if(b.phaseNumber>=this.level.shockPhase)this.hazards.push({id:this.nextId++,type:'shockwave',x:b.x,z:b.z,radius:.1,maxRadius:b.enraged?9:8,warning:.65,life:2,tick:0,hit:false});
           }
           this.finishBossSkill(b);
         }
         return;
       }
       b.skillCooldown-=dt;const dist=distance(b,this.player);
-      if(b.skillCooldown<=0){const turn=b.skillIndex++%3;this.beginBossSkill(b,turn===0?'toxic':turn===1?'charge':dist<7?'slam':'toxic');return;}
+      if(b.skillCooldown<=0){const pattern=this.level.bossSkills,type=pattern[b.skillIndex++%pattern.length];this.beginBossSkill(b,type==='slam'&&dist>=7?'toxic':type);return;}
       if(b.exposed>0)return;
       if(dist<2.3&&this.lineClear(b,this.player,1.1)){
         b.fx=(this.player.x-b.x)/Math.max(.01,dist);b.fz=(this.player.z-b.z)/Math.max(.01,dist);
@@ -386,17 +399,21 @@
       if (!this.facility || !this.activeCombat) return;
       if (this.facility === 'grid') {
         this.gridTimer -= dt; if (this.gridTimer > 0) return; this.gridTimer = 2.8; this.gridFlash = .45; this.event('gridpulse');
-        for (const e of this.enemies) if (!e.dead && e.x > GRID.x1 && e.x < GRID.x2 && e.z > GRID.z1 && e.z < GRID.z2) { e.slow = Math.max(e.slow, 2.6); e.slowFactor = .45; e.facilityAt = this.time; this.damageEnemy(e, 32, 'facility'); }
+        for (const e of this.enemies) if (!e.dead && e.x > this.level.grid.x1 && e.x < this.level.grid.x2 && e.z > this.level.grid.z1 && e.z < this.level.grid.z2) { e.slow = Math.max(e.slow, 2.6); e.slowFactor = .45; e.facilityAt = this.time; this.damageEnemy(e, 32, 'facility'); }
       } else {
         this.turretTimer -= dt; if (this.turretTimer > 0 || this.turretAmmo <= 0) return;
-        const targets = this.enemies.filter(e => { const d = distance(e, TURRET); return !e.dead && d < 22 && -(e.z - TURRET.z) / Math.max(.01, d) > Math.cos(50 * Math.PI / 180) && this.lineClear(TURRET, e, 1.2); }).sort((a, b) => distance(a, TURRET) - distance(b, TURRET));
+        const targets = this.enemies.filter(e => { const d = distance(e, this.level.turret); return !e.dead && d < 22 && -(e.z - this.level.turret.z) / Math.max(.01, d) > Math.cos(50 * Math.PI / 180) && this.lineClear(this.level.turret, e, 1.2); }).sort((a, b) => distance(a, this.level.turret) - distance(b, this.level.turret));
         const e = targets[0]; if (!e) return; this.turretAmmo--; this.turretTimer = .25; this.damageEnemy(e, e.kind === 'armor' ? 24 * .24 : 24, 'facility'); this.event('turretshot', { x: e.x, y: 1.1, z: e.z, id: e.id });
       }
     }
     hurt(damage) { if (this.player.hitCooldown > 0 || this.frozen) return; this.player.hp = Math.max(0, this.player.hp - damage); this.player.hitCooldown = .22; this.stats.damageTaken += damage; this.event('hurt', { damage }); if (this.player.hp <= 0) this.finish(false); }
     finish(won) {
       if (['won', 'lost'].includes(this.stage)) return; this.setStage(won ? 'won' : 'lost');
-      this.result = { won, mode:this.mode, melee:this.melee, bossDefeated:this.bossDefeated, time: this.time, wave: this.wave, facility: this.facility, perk: this.perk, primary: this.primary, optic: this.optic, ...this.stats, accuracy: this.stats.shots ? Math.round(this.stats.hits / this.stats.shots * 100) : 0 };
+      this.result = { won, levelIndex:this.levelIndex,levelId:this.level.id,levelName:this.level.name, mode:this.mode, melee:this.melee, bossDefeated:this.bossDefeated, time: this.time, wave: this.wave, facility: this.facility, perk: this.perk, primary: this.primary, optic: this.optic, ...this.stats, accuracy: this.stats.shots ? Math.round(this.stats.hits / this.stats.shots * 100) : 0 };
+    }
+    nextLevel(){
+      if(this.stage!=='won'||this.mode!=='campaign'||this.levelIndex>=LEVELS.length-1)return null;
+      return new Game({level:this.levelIndex+1,primary:this.primary,optic:this.optic,melee:this.melee,mode:'campaign',seed:this.seed});
     }
     step(dt, input = {}) {
       if (this.frozen || !Number.isFinite(dt) || dt <= 0) return;
@@ -457,5 +474,5 @@
       if (this.stage === 'escape' && Math.abs(this.player.x) < 2.6 && this.player.z < -19.7) this.finish(true);
     }
   }
-  return { Game, WEAPONS, OPTICS, MELEE, MELEE_ATTACKS, BOSS_RULES, ENEMIES, OBSTACLES, GATE, BOX, EXIT, GRID, TURRET, PORTALS, PICKUPS, direction, rayBox, raySphere, clamp, distance, formatTime };
+  return { Game, LEVELS, WEAPONS, OPTICS, MELEE, MELEE_ATTACKS, BOSS_RULES, ENEMIES, OBSTACLES, GATE, BOX, EXIT, GRID, TURRET, PORTALS, PICKUPS, direction, rayBox, raySphere, clamp, distance, formatTime };
 });

@@ -1,13 +1,14 @@
-import { World } from './scene.js?v=4';
+import { World } from './scene.js?v=5';
 const B = window.Blackout;
-const { Game, WEAPONS, OPTICS, MELEE, MELEE_ATTACKS, OBSTACLES, GRID, TURRET, BOX, EXIT, PORTALS, clamp, direction, distance, formatTime } = B;
+const { Game, LEVELS, WEAPONS, OPTICS, MELEE, MELEE_ATTACKS, OBSTACLES, GRID, TURRET, BOX, EXIT, PORTALS, clamp, direction, distance, formatTime } = B;
 const $ = id => document.getElementById(id);
 const touchQuery = matchMedia('(pointer:coarse)');
-let touchMode = touchQuery.matches, options = { primary: 'm4', melee:'combat', optic: 'red', quality: touchMode ? 'low' : 'high', renderRevision: 2, sound: true, auto: true };
+let touchMode = touchQuery.matches, options = { level:0,primary: 'm4', melee:'combat', optic: 'red', quality: touchMode ? 'low' : 'high', renderRevision: 2, sound: true, auto: true };
 let storageAvailable = true;
 function read(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; } }
 function save(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) { storageAvailable = false; } }
 const stored = read('blackout-loadout-v1', {});
+if(Number.isInteger(stored.level)&&LEVELS[stored.level])options.level=stored.level;
 if (['m4', 'ak', 'awm'].includes(stored.primary)) options.primary = stored.primary;
 if (Object.hasOwn(MELEE,stored.melee)) options.melee=stored.melee;
 if (OPTICS[stored.optic]) options.optic = stored.optic;
@@ -17,7 +18,7 @@ let history = read('blackout-results-v1', []); if (!Array.isArray(history)) hist
 history = history.filter(r => r && typeof r.won === 'boolean' && Number.isFinite(r.time) && r.time >= 0).slice(-50);
 document.body.classList.toggle('touch-mode', touchMode);
 window.bootProgress(65, '正在构建公交总站、武器和导航…');
-const view = new World($('world'), options.quality);
+const view = new World($('world'), options.quality);view.setLevel(options.level);let runResults=[];
 let game = null, lastTimestamp = 0, menuTime = 0, hudTimer = 0, aimTimer = 0, lastStage = '', resultSaved = false, manualFire = false, manualHeavy = false, toggleAim = false, toggleSprint = false;
 let joystickPointer = null, joystickInput = { x: 0, forward: 0 }, lookPointer = null, lastLook = { x: 0, y: 0 }, lastLocked = false, hitFlash = 0, hurtFlash = 0;
 let portrait = innerHeight > innerWidth;
@@ -76,12 +77,17 @@ class SoundSystem {
 }
 const sound = new SoundSystem();
 function updateMenu() {
+  const level=LEVELS[options.level];
+  document.querySelectorAll('[data-level]').forEach(b=>{const selected=Number(b.dataset.level)===options.level;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});
+  $('level-description').textContent=level.story;$('boss-training').querySelector('span').textContent='直接挑战'+level.bossName+' ↗';$('world').setAttribute('aria-label',level.name+'三维游戏场景');$('radar').setAttribute('aria-label',level.name+'示意图与目标方向');$('chapter-heading').textContent='CHAPTER 0'+(options.level+1)+' / '+level.name;
+  $('menu-story').textContent=level.story;$('start-button').firstChild.textContent='进入第 '+(options.level+1)+' 关 ';
+
   document.querySelectorAll('[data-weapon]').forEach(b => { const selected = b.dataset.weapon === options.primary; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
   document.querySelectorAll('[data-optic]').forEach(b => { const selected = b.dataset.optic === options.optic; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
   $('weapon-description').textContent = weaponDescriptions[options.primary]; $('quality-setting').value = options.quality; $('pause-quality').value = options.quality; $('sound-setting').checked = options.sound; $('auto-setting').checked = options.auto;
   document.querySelectorAll('[data-melee]').forEach(b=>{const selected=b.dataset.melee===options.melee;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});const blade=MELEE[options.melee];$('melee-description').textContent=`轻击 ${blade.damage} / 重击 ${Math.round(blade.damage*MELEE_ATTACKS[options.melee].heavy.damage)} · ${blade.range} 米 · ${blade.desc} · 重击消耗 18 体力`;
-  const wins = history.filter(r => r.won && r.mode!=='bossTraining' && r.bossDefeated), best = wins.length ? Math.min(...wins.map(r => r.time)) : null;
-  $('career-label').textContent = !storageAvailable ? '浏览器存储不可用，本次仍可游玩。' : wins.length ? `${wins.length} 次成功撤离 / 最佳 ${formatTime(best)}` : '准备好，活着回来。';
+  const wins = history.filter(r => r.won && r.mode!=='bossTraining' && r.bossDefeated && (r.levelIndex??0)===options.level), best = wins.length ? Math.min(...wins.map(r => r.time)) : null;
+  $('career-label').textContent = !storageAvailable ? '浏览器存储不可用，本次仍可游玩。' : wins.length ? `${level.name} · ${wins.length} 次撤离 / 最佳 ${formatTime(best)}` : '准备好，活着回来。';
 }
 function saveOptions() { save('blackout-loadout-v1', options); }
 function clearInput() { keys.clear(); manualFire = false; manualHeavy = false; toggleSprint = false; mouse.reset(); toggleAim = false; lookPointer = null; joystickPointer = null; joystickInput = { x: 0, forward: 0 }; $('joystick-knob').style.transform = ''; }
@@ -90,8 +96,9 @@ function requestPointer() {
   if (touchMode || !game || game.frozen) return;
   try { const result = $('world').requestPointerLock(); result?.catch?.(() => { $('pointer-hint').hidden = false; }); } catch (_) { $('pointer-hint').hidden = false; }
 }
-function start(mode = 'campaign') {
-  clearInput(); sound.unlock(); view.reset(); view.setQuality(options.quality); game = new Game({ primary: options.primary, melee:options.melee, mode:mode==='bossTraining'?'bossTraining':'campaign', optic: options.optic, seed: Date.now() % 2147483647 });
+function start(mode = 'campaign',levelIndex=options.level,keepRun=false,prepared=null) {
+  if(!keepRun)runResults=[];options.level=levelIndex;saveOptions();updateMenu();
+  clearInput(); sound.unlock();view.setLevel(levelIndex); view.reset(); view.setQuality(options.quality); game = prepared||new Game({ level:levelIndex,primary: options.primary, melee:options.melee, mode:mode==='bossTraining'?'bossTraining':'campaign', optic: options.optic, seed: Date.now() % 2147483647 });
   if(game.mode==='bossTraining')game.startBossEncounter();
   lastStage = ''; resultSaved = false; hitFlash = hurtFlash = 0; hudTimer = 1; $('menu').hidden = true; $('hud').hidden = false; $('pause-overlay').hidden = true; $('result-overlay').hidden = true; $('selection-overlay').hidden = true;
   $('tutorial-copy').textContent = touchMode ? '摇杆移动 · ⇧ 奔跑 · ↑ 跳跃 · ⇄ 切枪/刀' : 'WASD 移动 · Shift 奔跑 · 空格跳跃 · 3 / V 持刀 · 左轻 / 右重';
@@ -122,11 +129,19 @@ function showSelection(type) {
 }
 function showResult() {
   if (resultSaved) return; resultSaved = true; clearInput(); releasePointer();
-  const result = game.result, previousWins = history.filter(r => r.won && r.mode===result.mode && r.bossDefeated && r.primary === result.primary && r.facility === result.facility), record = result.won && result.mode!=='bossTraining' && (!previousWins.length || result.time < Math.min(...previousWins.map(r => r.time)));
+  const result = game.result, previousWins = history.filter(r => r.won && r.mode===result.mode && (r.levelIndex??0)===result.levelIndex && r.bossDefeated && r.primary === result.primary && r.facility === result.facility), record = result.won && result.mode!=='bossTraining' && (!previousWins.length || result.time < Math.min(...previousWins.map(r => r.time)));
   history.push({ ...result, date: new Date().toISOString() }); history = history.slice(-50); save('blackout-results-v1', history);
   $('result-tag').textContent = result.mode==='bossTraining' ? 'BOSS TRAINING / 首领训练' : result.won ? record ? '✦ NEW RECORD / 成功撤离' : 'EXTRACTION COMPLETE' : 'SIGNAL LOST / 任务失败';
   $('result-symbol').textContent = result.won ? '↗' : '✕'; $('result-title').textContent = result.mode==='bossTraining' ? (result.won?'训练完成，守门者倒下。':'训练结束，再试一次。') : result.won ? '你等到了天亮。' : '信号，在这里中断。';
   $('result-description').textContent = result.mode==='bossTraining' ? '首领训练单独结算，不计入完整撤离纪录。' : result.won ? '走出了总站。下一次，试试另一种防守方式。' : `抵达第 ${Math.max(1, result.wave)} 波。调整枪械、倍率或路线，再试一次。`;
+  const next=game.mode==='campaign'&&result.won&&game.levelIndex<LEVELS.length-1;
+  $('next-level-button').hidden=!next;$('next-level-button').textContent=next?'继续第 '+(game.levelIndex+2)+' 关 · '+LEVELS[game.levelIndex+1].name+' →':'';
+  $('retry-button').className=next?'secondary-button':'start-button';$('retry-button').textContent='重试本关 ↗';
+  if(game.mode==='campaign'){
+    const cleared=[...runResults,...(result.won?[result]:[])],all=cleared.length===3&&cleared.every((r,i)=>r.levelIndex===i);
+    $('result-title').textContent=result.won?(all?'三关突破，天亮了。':game.level.name+' · 撤离成功'):'信号，在这里中断。';
+    $('result-description').textContent=result.won?(next?'下一处撤离信号已定位。前往新区域时恢复生命与弹药，保留枪械和刀具选择。':all?'已连续完成三关，用时 '+formatTime(cleared.reduce((n,r)=>n+r.time,0))+'，总击杀 '+cleared.reduce((n,r)=>n+r.kills,0)+'。':'已通过最后区域。可从整备界面选择其他关卡或重试。'):'第 '+(game.levelIndex+1)+' 关 · '+game.level.name+' / 抵达第 '+Math.max(1,result.wave)+' 波。';
+  }
   $('result-stats').replaceChildren();
   for (const [value, label] of [[formatTime(result.time), '本局用时'], [result.kills, '总击杀'], [result.headshots, '爆头击杀'], [result.facilityKills, '设施击杀'], [result.assists || 0, '设施助攻'], [result.meleeKills || 0, '近战击杀'], [result.accuracy + '%', '射击命中率']]) { const d = document.createElement('div'), strong = document.createElement('strong'), span = document.createElement('span'); strong.textContent = value; span.textContent = label; d.append(strong, span); $('result-stats').appendChild(d); }
   $('result-build').textContent = `${WEAPONS[result.primary].short} + ${MELEE[result.melee||'combat'].short} / ${OPTICS[result.optic].short} / ${facilityNames[result.facility] || '未接通设施'} / ${perkNames[result.perk] || '未获得强化'}`;
@@ -140,11 +155,12 @@ function syncStage() {
 }
 function updateHUD() {
   if (!game) return;
+  $('chapter-label').textContent='0'+(game.levelIndex+1)+' / 03 · '+game.level.name;
   $('wave-label').textContent = ['bossIntro','boss'].includes(game.stage) ? 'BOSS / α' : game.wave ? `${String(game.wave).padStart(2, '0')} / 03` : '引导';
   $('remaining-label').textContent = ['bossIntro','boss'].includes(game.stage)?'最终首领':game.stage === 'wave' ? `${game.remaining} 个目标` : ['evac', 'escape'].includes(game.stage) ? '撤离阶段' : game.stage === 'tutorial' ? `${Math.max(0, Math.ceil(15 - game.stageTime))} 秒后开始` : '区域清空';
   [...$('wave-dots').children].forEach((dot, i) => { dot.classList.toggle('active', game.wave === i + 1 && game.stage === 'wave'); dot.classList.toggle('done', game.wave > i + 1 || game.wave === i + 1 && game.stage !== 'wave'); });
   $('objective-tag').textContent = game.stage === 'escape' ? '立即撤离' : game.stage === 'wave' ? '当前目标 / 保持移动' : '当前目标'; $('objective-text').textContent = game.objective;
-  $('elapsed-time').textContent = formatTime(game.time); $('gate-progress').hidden = !['evac', 'escape'].includes(game.stage); $('gate-fill').style.width = (18 - game.gateTime) / 18 * 100 + '%';
+  $('elapsed-time').textContent = formatTime(game.time); $('gate-progress').hidden = !['evac', 'escape'].includes(game.stage); $('gate-fill').style.width = (game.level.evacSeconds - game.gateTime) / game.level.evacSeconds * 100 + '%';
   $('hp-label').textContent = game.player.hp; $('hp-fill').style.width = game.player.hp + '%'; $('hp-fill').style.background = game.player.hp < 35 ? '#dd8b67' : '#b7cf91'; $('hp-status').textContent = game.player.hp < 35 ? 'CRITICAL / 寻找医疗补给' : 'VITALS STABLE';
   $('ammo-label').textContent = game.weapon==='melee'?'∞':String(game.ammo[game.weapon]).padStart(2, '0'); $('reserve-label').textContent = game.weapon==='melee' ? '近战' : game.weapon === 'pistol' ? '∞' : game.reserve;
   $('current-weapon').textContent = game.weaponInfo.short; $('reload-label').textContent = game.weapon==='melee' ? (game.meleeAction?`${game.meleeAction.type==='heavy'?'重击':'轻击'} · ${game.meleeAction.elapsed<game.meleeAction.windup?'蓄力':game.meleeAction.hitDone?'收势':'出刀'}`:'左键轻击 · 右键 / F 重击') : game.reloadTime > 0 ? `装填 ${game.reloadTime.toFixed(1)}s` : game.weapon === 'rifle' && game.primary === 'awm' && game.fireCooldown > .2 ? '拉栓中' : '';
@@ -158,14 +174,15 @@ function updateHUD() {
   $('facility-state').hidden = !game.facility; if (game.facility) { $('facility-name').textContent = facilityNames[game.facility]; $('facility-detail').textContent = game.facility === 'grid' ? `下次脉冲 ${Math.max(0, game.gridTimer).toFixed(1)}s` : `剩余 ${game.turretAmmo} / 120 发`; }
   const point = game.objectivePoint; $('objective-arrow').hidden = !point;
   if (point) { const angle = Math.atan2(point.x - game.player.x, -(point.z - game.player.z)) + game.player.yaw; $('objective-arrow').querySelector('span').style.transform = `rotate(${angle}rad)`; $('objective-distance').textContent = Math.round(distance(point, game.player)) + ' M'; }
-  const target = game.weapon==='melee' ? (game.meleeTargets()[0]?{enemy:game.meleeTargets()[0]}:null) : game.trace().hits[0]; $('reticle').classList.toggle('on-target', !!target); $('target-label').textContent = target ? target.enemy.kind==='boss' ? (game.boss?.exposed>0?'守门者 / 弱点暴露！':'守门者 / 护甲防守') : target.enemy.kind === 'armor' ? '护甲目标 / 头部弱点' : target.enemy.kind === 'runner' ? '奔袭者' : '感染者' : '';
+  const target = game.weapon==='melee' ? (game.meleeTargets()[0]?{enemy:game.meleeTargets()[0]}:null) : game.trace().hits[0]; $('reticle').classList.toggle('on-target', !!target); $('target-label').textContent = target ? target.enemy.kind==='boss' ? (game.level.bossName+(game.boss?.exposed>0?' / 弱点暴露！':' / 护甲防守')) : target.enemy.kind === 'armor' ? '护甲目标 / 头部弱点' : target.enemy.kind === 'runner' ? '奔袭者' : '感染者' : '';
   $('hud-sound').setAttribute('aria-label', options.sound ? '关闭音效' : '开启音效'); $('hud-sound').style.opacity = options.sound ? '1' : '.45';
   const boss=game.boss;document.body.classList.toggle('boss-active',!!boss);$('boss-hud').hidden=!boss;
-  if(boss){$('boss-title').textContent='守门者 / 阶段 '+boss.phaseNumber+' · '+(boss.exposed>0?'弱点暴露':'护甲防守');$('boss-stagger').style.width=boss.stagger+'%';$('boss-hud').classList.toggle('exposed',boss.exposed>0);$('boss-health').textContent=Math.ceil(Math.max(0,boss.hp))+' / '+boss.maxHp;$('boss-fill').style.width=(boss.hp/boss.maxHp*100)+'%';$('boss-hud').classList.toggle('enraged',!!boss.enraged);$('boss-warning').textContent=game.bossStatus;}
+  if(boss){$('boss-title').textContent=game.level.bossName+' / 阶段 '+boss.phaseNumber+' · '+(boss.exposed>0?'弱点暴露':'护甲防守');$('boss-stagger').style.width=boss.stagger+'%';$('boss-hud').classList.toggle('exposed',boss.exposed>0);$('boss-health').textContent=Math.ceil(Math.max(0,boss.hp))+' / '+boss.maxHp;$('boss-fill').style.width=(boss.hp/boss.maxHp*100)+'%';$('boss-hud').classList.toggle('enraged',!!boss.enraged);$('boss-warning').textContent=game.bossStatus;}
   $('stamina-fill').style.width=game.player.stamina+'%';$('stamina-label').textContent=game.player.sprinting?'奔跑中':game.player.exhausted?'体力耗尽 · 恢复中':'体力 '+Math.round(game.player.stamina)+' / 100';$('sprint-button').classList.toggle('active',game.player.sprinting||toggleSprint);$('sprint-button').setAttribute('aria-pressed',String(toggleSprint));$('reload-button').disabled=game.weapon==='melee';$('aim-button').disabled=false;$('fire-button').querySelector('small').textContent=game.weapon==='melee'?'轻击':'射击';
   drawRadar();
 }
 function drawRadar() {
+  const {obstacles:OBSTACLES,grid:GRID,turret:TURRET,portals:PORTALS}=game.level;
   const canvas = $('radar'), c = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
   c.clearRect(0, 0, w, h); c.fillStyle = '#0e2028bb'; c.fillRect(6, 5, w - 12, h - 16); c.strokeStyle = '#a3b38c40'; c.lineWidth = 1; c.strokeRect(6, 5, w - 12, h - 16);
   const px = x => 75 + x * 3.55, pz = z => 79 + z * 3.25;
@@ -176,7 +193,7 @@ function drawRadar() {
   for (const e of game.enemies) { c.fillStyle = e.kind==='boss'?'#f19b7f':e.kind === 'runner' ? '#e99565' : e.kind === 'armor' ? '#c8d8ee' : '#b7c88b'; c.beginPath(); c.arc(px(e.x), pz(e.z), e.kind==='boss'?3:1.5, 0, TAU); c.fill(); }
   const target = game.objectivePoint; if (target) { c.strokeStyle = '#f1cb8c'; c.strokeRect(px(target.x) - 3, pz(target.z) - 3, 6, 6); }
   c.save(); c.translate(px(game.player.x), pz(game.player.z)); c.rotate(-game.player.yaw); c.fillStyle = '#f9d99e'; c.beginPath(); c.moveTo(0, -5); c.lineTo(-3.5, 4); c.lineTo(3.5, 4); c.closePath(); c.fill(); c.restore();
-  c.fillStyle = '#b1c59e8a'; c.font = '7px Consolas,monospace'; c.textAlign = 'center'; c.fillText('N ↑ / 总站示意图', 75, 166);
+  c.fillStyle = '#b1c59e8a'; c.font = '7px Consolas,monospace'; c.textAlign = 'center'; c.fillText('N ↑ / '+game.level.name, 75, 166);
 }
 const TAU = Math.PI * 2;
 function inputs() {
@@ -193,6 +210,7 @@ function frame(timestamp) {
 }
 
 const bladeIcons={combat:'M20 38 L62 8 55 30 28 44 20 60 13 56 19 42Z',karambit:'M19 52 C9 28 32 5 64 13 C37 18 29 35 33 47 L29 61 20 59Z',machete:'M13 48 L66 8 69 24 27 51 19 64 11 58Z',katana:'M12 56 Q30 24 68 6 Q42 37 27 53 L22 65 15 61Z',axe:'M24 61 L35 14 42 16 31 64Z M28 19 Q61 1 68 29 L42 36 30 29Z'};
+for(const [index,level]of LEVELS.entries()){const button=document.createElement('button');button.dataset.level=index;button.setAttribute('aria-pressed',String(index===options.level));button.innerHTML=`<small>CHAPTER 0${index+1}</small><strong>${level.name}</strong><span>${level.subtitle}</span>`;button.addEventListener('click',()=>{options.level=index;view.setLevel(index);saveOptions();updateMenu();});$('level-options').append(button);}
 for(const [id,m] of Object.entries(MELEE)){const button=document.createElement('button');button.dataset.melee=id;button.setAttribute('aria-pressed',String(id===options.melee));button.innerHTML=`<svg viewBox="0 0 80 70" aria-hidden="true"><path d="${bladeIcons[id]}"/></svg><strong>${m.name}</strong><small>${m.desc.split(' · ')[0]}</small>`;button.style.setProperty('--blade',m.color);button.addEventListener('click',()=>{options.melee=id;saveOptions();updateMenu();});$('melee-options').append(button);}
 document.querySelectorAll('[data-weapon]').forEach(b => b.addEventListener('click', () => { options.primary = b.dataset.weapon; saveOptions(); updateMenu(); }));
 document.querySelectorAll('[data-optic]').forEach(b => b.addEventListener('click', () => setOptic(b.dataset.optic)));
@@ -201,7 +219,8 @@ for (const id of ['quality-setting', 'pause-quality']) $(id).addEventListener('c
 $('sound-setting').addEventListener('change', e => { options.sound = e.target.checked; sound.unlock(); sound.setMuted(); saveOptions(); });
 $('auto-setting').addEventListener('change', e => { options.auto = e.target.checked; saveOptions(); });
 $('start-button').addEventListener('click',()=>start());$('boss-training').addEventListener('click',()=>start('bossTraining'));  $('pause-button').addEventListener('click', () => pause()); $('resume-button').addEventListener('click', resume);
-$('restart-button').addEventListener('click',()=>start(game?.mode)); $('retry-button').addEventListener('click',()=>start(game?.mode)); $('back-menu').addEventListener('click', backToMenu); $('change-loadout').addEventListener('click', backToMenu);
+$('restart-button').addEventListener('click',()=>start(game?.mode,game?.levelIndex,true)); $('next-level-button').addEventListener('click',()=>{const next=game?.nextLevel();if(!next)return;runResults.push(game.result);start('campaign',next.levelIndex,true,next);});
+$('retry-button').addEventListener('click',()=>start(game?.mode,game?.levelIndex,true)); $('back-menu').addEventListener('click', backToMenu); $('change-loadout').addEventListener('click', backToMenu);
 $('skip-tutorial').addEventListener('click', () => { game?.skipTutorial(); requestPointer(); });
 $('guide-button').addEventListener('click', () => $('guide-dialog').showModal()); $('close-guide').addEventListener('click', () => $('guide-dialog').close());
 $('hud-sound').addEventListener('click', () => { options.sound = !options.sound; sound.unlock(); sound.setMuted(); saveOptions(); });

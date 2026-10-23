@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0e13">
+  <title>银河防线 · 飞机大战</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html" aria-label="银河防线首页"><span class="brand-icon">✦</span><span>ORBIT<span class="brand-dot">.</span></span></a>
+      <span class="edition">ARCADE SERIES <span>/</span> 001</span>
+      <span class="online"><i></i> 飞行系统就绪</span>
+    </header>
+
+    <section class="page-title"><div><span class="eyebrow">THE LAST LINE OF DEFENSE</span><h1>银河防线<span> / STARFIGHTER</span></h1></div><span class="version">单人飞行任务 · V1.0</span></section>
+
+    <div class="dashboard">
+      <aside class="sidebar left-sidebar">
+        <section class="card mission"><div class="section-label"><span>01 / 任务简报</span><span>↗</span></div><div class="sector-art"><div class="planet"></div><span class="orbit-line"></span><span class="planet-dot"></span></div><span class="eyebrow">SECTOR 07</span><h2>守住最后一道防线。</h2><p>敌方机群正在接近。驾驶「游隼」战机，穿越火线，清除所有威胁。</p><div class="mission-status"><i></i> 无尽生存模式</div></section>
+        <section class="card controls"><div class="section-label">02 / 飞行手册</div><div class="key-row"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>移动战机</span></div><div class="key-row"><span><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></span><span>也可移动</span></div><div class="key-row"><kbd>X</kbd><span>释放清屏脉冲</span></div><div class="key-row"><kbd>P</kbd><span>暂停 / 继续</span></div><div class="control-note"><span>⌖</span> 鼠标跟随 / 手指拖动<br>自动开火，专注闪避。</div></section>
+        <div class="side-footer"><i></i> MADE FOR THE LOVE OF ARCADE</div>
+      </aside>
+
+      <section class="game-frame" aria-label="飞机大战游戏区">
+        <div class="game-top"><span><i></i> LIVE MISSION</span><div class="game-tools"><button id="sound-btn" class="icon-button" aria-label="开启音效" title="音效">♪<span id="sound-status">OFF</span></button><button id="pause-btn" class="icon-button" aria-label="暂停游戏" title="暂停 / 继续（P）">Ⅱ</button></div></div>
+        <div class="playfield" id="playfield">
+          <canvas id="game" width="600" height="760" aria-label="使用方向键或 WASD 移动，X 释放脉冲，P 暂停"></canvas>
+          <div class="hud"><div><span class="hud-label">SCORE</span><strong id="score">000000</strong></div><div class="wave-hud"><span class="hud-label">WAVE</span><strong id="wave">01</strong></div></div>
+          <div id="boss-hud" class="boss-hud" hidden><span>WARNING / 毁灭者</span><div><i id="boss-health"></i></div></div>
+          <div id="announcement" class="announcement" aria-live="polite"></div>
+          <div class="overlay" id="overlay"><div class="overlay-content"><span class="launch-badge" id="overlay-badge">✦ READY FOR TAKEOFF</span><div class="hero-mark" id="hero-mark">⌁</div><h2 id="overlay-title">宇宙很大。<br>防线只有你。</h2><p id="overlay-description">引擎已就绪，向未知出发。<br>闪避、反击，创造你的最高纪录。</p><button id="start-btn" class="primary-button">开始飞行 <span>↗</span></button><span class="start-hint" id="start-hint">按 ENTER 开始 · 自动射击</span></div><span class="overlay-coordinates">X: 007.42 &nbsp; Y: 021.86 &nbsp; / &nbsp; DEEP SPACE</span></div>
+          <div class="bottom-hud"><div class="hull"><span class="hud-label">HULL</span><span id="lives">♥ ♥ ♥</span></div><button id="bomb-btn" class="bomb-button" aria-label="释放清屏脉冲（X）"><span>✧</span> 脉冲 <b id="bombs">3</b><kbd>X</kbd></button></div>
+        </div>
+        <div class="game-bottom"><span id="flight-status">STANDBY / 等待起飞</span><span class="signal">▂▄▆█ <span>60 FPS TARGET</span></span></div>
+      </section>
+
+      <aside class="sidebar right-sidebar">
+        <section class="card record-card"><div class="section-label"><span>个人最佳</span><span>↗</span></div><div class="record-number" id="best">000000</div><span class="tiny">HIGH SCORE / 本地保存</span><div class="record-divider"></div><div class="stat-row"><span>击落敌机</span><strong id="kills">0</strong></div><div class="stat-row"><span>飞行时间</span><strong id="time">00:00</strong></div><div class="stat-row"><span>武器等级</span><strong id="weapon">LV. 1</strong></div></section>
+        <section class="card supply-card"><div class="section-label">03 / 战场补给</div><div class="supply"><span class="supply-icon cyan">↑</span><div><h3>火力升级</h3><p>升级弹道，最高三级</p></div></div><div class="supply"><span class="supply-icon purple">◇</span><div><h3>能量护盾</h3><p>8 秒内抵御碰撞</p></div></div><div class="supply"><span class="supply-icon orange">+</span><div><h3>机体修复</h3><p>恢复一格机体生命</p></div></div></section>
+        <section class="tip-card"><span>FLIGHT TIP / 01</span><p>别追着每一架敌机跑。<br>活下来，才能飞得更远。</p><span class="tip-cross">+</span></section>
+      </aside>
+    </div>
+    <footer class="page-footer"><span>© 2026 ORBIT ARCADE</span><span>戴上耳机，进入你的飞行时刻。 <span class="footer-star">✦</span></span></footer>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>

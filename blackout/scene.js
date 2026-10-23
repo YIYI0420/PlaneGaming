@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
-import { applyWeaponPose, applyCameraPose, RED_SIGHT_CENTER, QUALITY } from './presentation.js';
-import { beveledBox, upgradeEnvironment, applyQuality } from './graphics.js';
+import { applyWeaponPose, applyCameraPose, RED_SIGHT_CENTER, QUALITY } from './presentation.js?v=3';
+import { beveledBox, upgradeEnvironment, applyQuality } from './graphics.js?v=3';
+import { buildMeleeModels, spawnBossActor, BossEffects } from './combat-visuals.js?v=3';
 const B = window.Blackout;
 const { OBSTACLES, GRID, TURRET, BOX, PORTALS, ENEMIES, direction, clamp } = B;
 const TAU = Math.PI * 2;
@@ -27,7 +28,7 @@ export class World {
     const sun = this.sun = new THREE.DirectionalLight('#ffcf92', 3.1); sun.position.set(-13, 24, 9); this.scene.add(sun); sun.shadow.camera.left=-29;sun.shadow.camera.right=29;sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;sun.shadow.camera.near=.5;sun.shadow.camera.far=75;sun.shadow.bias=-.00025;sun.shadow.normalBias=.035;
     this.batches = new Map(); this.actors = new Map(); this.corpses = []; this.pickupModels = []; this.grenadeModels = new Map(); this.effects = []; this.tracers = [];
     this.lastWeapon = ''; this.lastOptic = ''; this.fov = 78; this.clock = 0; this.isMenu = true; this.quality = quality;
-    this.buildDepot(); this.flushBatches(); this.buildFacilities(); this.buildWeapons(); this.buildParticles(); upgradeEnvironment(this); for(const [key,m]of materials)if(['#596865','#667672','#879289','#465b5b','#465f5b'].some(c=>key===c+'/false')){m.map=this.textures.concrete;m.roughness=.94;} applyQuality(this, quality);
+    this.buildDepot(); this.flushBatches(); this.buildFacilities(); this.buildWeapons(); this.buildParticles(); this.bossEffects=new BossEffects(this.scene); upgradeEnvironment(this); for(const [key,m]of materials)if(['#596865','#667672','#879289','#465b5b','#465f5b'].some(c=>key===c+'/false')){m.map=this.textures.concrete;m.roughness=.94;} applyQuality(this, quality);
     this.camera.position.set(19, 13, 22); this.camera.lookAt(0, .8, -3); this.renderer.compile(this.scene, this.camera);
   }
   staticPart(shape, size, position, color, rotation = [0, 0, 0], basic = false) {
@@ -176,11 +177,12 @@ export class World {
       const flash = part(group, 'sphere', [.065, .065, .1], [0, .025, group.userData.muzzleZ], flashMat); flash.renderOrder = 30; group.userData.flash = flash;
     }
     this.opticMount = new THREE.Group(); this.viewRoot.add(this.opticMount);
+    buildMeleeModels(this,part);
     this.viewRoot.position.set(.31, -.27, -.57);
   }
   mountOptic(optic, kind) {
     while (this.opticMount.children.length) { const child=this.opticMount.children[0];if(child.userData.ownMaterial)child.material.dispose();this.opticMount.remove(child); }
-    if (kind === 'pistol') { this.opticMount.visible = false; return; } this.opticMount.visible = true;
+    if (kind === 'pistol'||kind==='melee') { this.opticMount.visible = false; return; } this.opticMount.visible = true;
     const add = (shape,size,pos,color,rotation=[0,0,0]) => part(this.opticMount,shape==='box'?'bevel':shape,size,pos,this.weaponMaterial(color),rotation);
     if (optic === 'red') {
       add('box', [.10, .06, .10], [0, .08, .02], '#586f65', [0, 0, 0], true);
@@ -200,6 +202,7 @@ export class World {
     this.traceLines = new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: '#ffe0a5', transparent: true, opacity: .65, depthWrite: false })); this.traceLines.frustumCulled = false; this.scene.add(this.traceLines);
   }
   spawnActor(enemy) {
+    if(enemy.kind==='boss')return spawnBossActor(this,enemy,part);
     const group = new THREE.Group(), kind = enemy.kind, info = ENEMIES[kind], heightScale = info.height / 1.8;
     const bodyColor = kind === 'walker' ? '#7a8c6a' : kind === 'runner' ? '#a8684e' : '#536b72';
     const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, map:this.textures.fabric, roughness:.94 }), skinMat = new THREE.MeshStandardMaterial({ color: kind === 'runner' ? '#a9ac8b' : '#a8b48f', roughness:.8 });
@@ -221,6 +224,9 @@ export class World {
   }
   handleEvents(events) {
     for (const event of events) {
+      this.bossEffects.event(event);
+      if(event.type==='bossdown')this.burst(event.x,2,event.z,'#e4b17a',60,7);
+      if(event.type==='bossslam')this.burst(event.x,.25,event.z,'#e8bd83',40,5);
       if (event.type === 'hit') this.burst(event.point.x, event.point.y, event.point.z, event.armor ? '#b4dbe6' : event.head ? '#e9c28c' : '#a9af8b', 6, 1.4);
       if (event.type === 'shoot') { const gun = this.guns[this.currentGun]; if (gun) gun.userData.flash.material.opacity = .95; this.tracers.push({ from: [event.origin.x+event.dir.x*.3, event.origin.y+event.dir.y*.3, event.origin.z+event.dir.z*.3], to: [event.point.x, event.point.y, event.point.z], life: .06 }); }
       if (event.type === 'turretshot') { this.tracers.push({ from: [TURRET.x, 1.25, TURRET.z - 1], to: [event.x, event.y, event.z], life: .10 }); this.turretHead.rotation.y = Math.atan2(-(event.x - TURRET.x), -(event.z - TURRET.z)); this.burst(TURRET.x, 1.2, TURRET.z - 1.15, '#f9d694', 3, .5); }
@@ -229,8 +235,8 @@ export class World {
     }
     while (this.corpses.length > 6) this.removeActor(this.corpses.shift());
   }
-  removeActor(id) { const actor = this.actors.get(id); if (!actor) return; this.scene.remove(actor.group); actor.bodyMat.dispose(); actor.skinMat.dispose(); this.actors.delete(id); }
-  reset() { for (const id of [...this.actors.keys()]) this.removeActor(id); this.corpses = []; this.effects = []; this.tracers = []; for (const obj of this.grenadeModels.values()) this.scene.remove(obj); this.grenadeModels.clear(); this.gate.position.y = 0; this.lastWeapon = ''; this.lastOptic = ''; this.fov = 78; }
+  removeActor(id) { const actor = this.actors.get(id); if (!actor) return; this.scene.remove(actor.group); actor.bodyMat.dispose(); actor.skinMat.dispose();actor.ownedMaterials?.forEach(m=>m.dispose()); this.actors.delete(id); }
+  reset() { this.bossEffects.reset(); for (const id of [...this.actors.keys()]) this.removeActor(id); this.corpses = []; this.effects = []; this.tracers = []; for (const obj of this.grenadeModels.values()) this.scene.remove(obj); this.grenadeModels.clear(); this.gate.position.y = 0; this.lastWeapon = ''; this.lastOptic = ''; this.fov = 78; }
   setQuality(value) { applyQuality(this,value); }
   resize() { const w = window.innerWidth, h = window.innerHeight; const p=QUALITY[this.quality]||QUALITY.standard;this.renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1,p.minimum),p.ratio)); this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.weaponCamera.aspect=w/h;this.weaponCamera.updateProjectionMatrix(); }
   render(game, dt, menuTime = 0) {
@@ -238,11 +244,19 @@ export class World {
     if (!game) { this.viewRoot.visible = false; this.camera.fov = 65; this.camera.position.set(19 + Math.sin(menuTime * .08) * 1.5, 12.8, 23); this.camera.lookAt(-1, .8, -3); this.camera.updateProjectionMatrix(); this.sky.position.copy(this.camera.position);this.renderer.render(this.scene, this.camera); return; }
     this.viewRoot.visible = true;
     applyCameraPose(this.camera,game.player);
-    const targetFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(78 / 2)) / game.zoom));
+    const targetFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(78 / 2)) / game.zoom))+(game.player.sprinting?5:0);
     this.fov += (targetFov - this.fov) * Math.min(1, dt * 13); this.camera.fov = this.fov; this.camera.updateProjectionMatrix(); this.weaponCamera.fov=this.fov;this.weaponCamera.updateProjectionMatrix();
-    const gun = game.weapon === 'pistol' ? 'pistol' : game.primary;
+    const gun = game.weapon==='melee' ? 'melee' : game.weapon === 'pistol' ? 'pistol' : game.primary;
     if (gun !== this.currentGun || this.lastOptic !== game.optic) { Object.entries(this.guns).forEach(([kind, model]) => { model.visible = kind === gun; }); this.currentGun = gun; this.lastOptic = game.optic; this.mountOptic(game.optic, gun); }
+    Object.entries(this.meleeModels).forEach(([id,m])=>{m.visible=game.weapon==='melee'&&id===game.melee;});
     const reload = applyWeaponPose(this.viewRoot, game, now);
+    if(game.weapon==='melee'){
+      const progress=game.meleeTime>0?1-game.meleeTime/game.weaponInfo.interval:0, swing=game.meleeTime>0?Math.sin(progress*Math.PI):0;
+      this.viewRoot.position.set(.29-swing*.40,-.30+swing*.16+Math.sin(now*7)*.003,-.86+swing*.12);this.viewRoot.rotation.set(.25+swing*(game.melee==='axe'?1.1:.2),-.15+swing*.4,-.38-swing*1.4);
+      this.meleeModels[game.melee].userData.trail.material.opacity=swing*.18;
+    }
+    if(game.player.sprinting){this.viewRoot.position.y-=.10;this.viewRoot.rotation.z+=.25;this.viewRoot.position.x+=Math.sin(now*15)*.009;}
+    this.bossEffects.update(game,dt);
     for (const model of Object.values(this.guns)) { model.userData.flash.material.opacity = Math.max(0, model.userData.flash.material.opacity - dt * 15); if (model.userData.magazine) model.userData.magazine.position.y = (model === this.guns.awm ? -.08 : -.13) - reload * .12; }
     if (this.guns.awm.userData.bolt) this.guns.awm.userData.bolt.position.z = .03 + Math.max(0, Math.sin(game.fireCooldown / 1.12 * Math.PI * 2)) * .09;
     const alive = new Map(game.enemies.map(e => [e.id, e]));
@@ -251,7 +265,11 @@ export class World {
       actor.group.position.set(enemy.x, Math.sin(enemy.phase * 2) * .015, enemy.z); actor.group.rotation.y = Math.atan2(enemy.fx, enemy.fz);
       actor.limbs[0].rotation.x = Math.sin(enemy.phase) * .48; actor.limbs[2].rotation.x = -Math.sin(enemy.phase) * .48;
       actor.limbs[1].rotation.x = (enemy.windup > 0 ? -1.45 : -.6) + Math.sin(enemy.phase) * .13; actor.limbs[3].rotation.x = (enemy.windup > 0 ? -1.45 : -.6) - Math.sin(enemy.phase) * .13;
-      actor.bodyMat.color.set(enemy.hit > 0 ? '#d8d8be' : actor.bodyColor); actor.head.scale.y = .235 * (enemy.hit > 0 ? .85 : 1); actor.group.scale.setScalar(enemy.kind === 'armor' ? 1.03 : 1);
+      actor.bodyMat.color.set(enemy.hit > 0 ? '#d8d8be' : actor.bodyColor); actor.head.scale.y = (actor.baseHeadY||.235) * (enemy.hit > 0 ? .85 : 1); actor.group.scale.setScalar(enemy.kind === 'armor' ? 1.03 : 1);
+      if(enemy.kind==='boss'){
+        const raised=enemy.skill&&enemy.skill.type!=='rush';if(raised){actor.limbs[1].rotation.x=actor.limbs[3].rotation.x=-1.7;}
+        actor.torso.rotation.x=enemy.skill?.type==='rush'?.18:0;actor.coreMat.emissive.set(enemy.enraged?'#ff2f15':'#ec782d');actor.coreMat.emissiveIntensity=1+Math.sin(now*6)*.35;
+      }
     }
     for (const [id, actor] of this.actors) {
       if (alive.has(id)) continue;
@@ -272,7 +290,7 @@ export class World {
     for (const p of this.effects) { p.life -= dt; p.vy -= dt * 6; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; const i = n++ * 3; this.particlePositions[i] = p.x; this.particlePositions[i + 1] = p.y; this.particlePositions[i + 2] = p.z; this.particleColors[i] = p.color.r * Math.min(1, p.life * 3); this.particleColors[i + 1] = p.color.g * Math.min(1, p.life * 3); this.particleColors[i + 2] = p.color.b * Math.min(1, p.life * 3); }
     this.particlePoints.geometry.setDrawRange(0, n); this.particlePoints.geometry.attributes.position.needsUpdate = true; this.particlePoints.geometry.attributes.color.needsUpdate = true;
     this.tracers = this.tracers.filter(t => t.life > 0).slice(-24); n = 0; for (const t of this.tracers) { t.life -= dt; this.tracePositions.set([...t.from, ...t.to], n++ * 6); } this.traceLines.geometry.setDrawRange(0, n * 2); this.traceLines.geometry.attributes.position.needsUpdate = true;
-    this.renderer.render(this.scene, this.camera);
+    this.sky.position.copy(this.camera.position);this.renderer.render(this.scene, this.camera);
     if(this.viewRoot.visible){this.renderer.autoClear=false;this.renderer.clearDepth();this.renderer.render(this.weaponScene,this.weaponCamera);this.renderer.autoClear=true;}
   }
 }

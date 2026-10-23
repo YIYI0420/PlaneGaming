@@ -11,7 +11,7 @@ export function applyCameraPose(camera, player) {
 export function applyWeaponPose(root, game, time) {
   const reload = game.reloadTime > 0 ? Math.sin((1 - game.reloadTime / game.reloadDuration) * Math.PI) : 0;
   const sight = game.weapon === 'pistol' ? { x: 0, y: .105 } : RED_SIGHT_CENTER;
-  const aim = game.aiming;
+  const aim = game.aiming && game.weapon!=='melee';
   // In ADS, the sight centre sits on the camera's -Z ray. Recoil moves the weapon along Z only.
   root.position.set(aim ? -sight.x : .245, (aim ? -sight.y : -.235 + Math.sin(time * 7) * .002) - reload * .26, -.64 + game.player.recoil * .35);
   root.rotation.set(-reload * .16, .03 * reload, -.52 * reload);

@@ -54,7 +54,7 @@ test('all weapon / facility / perk builds complete wave, power, perk, gate and e
       // This harness isolates progression and weapon rules; survival balance is tested by playtesting.
       g.player.hp=1e6; g.step(.05,{fire:!!visible[0],aim:true});g.drainEvents();
     }
-    assert.equal(g.stage,'gateTravel',primary+'/'+facility+'/'+perk); assert.equal(g.stats.kills,42);
+    assert.equal(g.stage,'gateTravel',primary+'/'+facility+'/'+perk); assert.equal(g.stats.kills,43);assert.equal(g.bossDefeated,true);assert.equal(g.stats.bossDamage,2400);
     Object.assign(g.player,{x:0,z:-17.5,hp:1e6});assert.equal(g.interact(),false);advance(g,6.1);assert.ok(g.interact()); const remaining=g.gateTime;g.pause();advance(g,3);assert.equal(g.gateTime,remaining);g.resume();advance(g,18.1);assert.equal(g.stage,'escape');assert.equal(g.gateOpen,true);const spawned=g.spawned;advance(g,2);assert.equal(g.spawned,spawned);assert.equal(g.stage,'escape');advance(g,1,{forward:1});assert.equal(g.stage,'won');assert.ok(g.result.won);assert.equal(g.result.primary,primary);assert.equal(g.result.perk,perk);assert.equal(g.result.facility,facility);runs++;
   }
   assert.equal(runs,18);

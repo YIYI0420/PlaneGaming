@@ -107,7 +107,7 @@
   }
   function input() {
     const active = new Set(touches.values());
-    return { steer: Number(keys.has('d') || keys.has('arrowright') || active.has('right')) - Number(keys.has('a') || keys.has('arrowleft') || active.has('left')), accelerate: keys.has('w') || keys.has('arrowup'), brake: keys.has('s') || keys.has('arrowdown') || active.has('brake'), drift: keys.has(' ') || active.has('drift'), nitro: keys.has('shift') || active.has('nitro') };
+    return { steer: Number(keys.has('d') || keys.has('arrowright') || active.has('right')) - Number(keys.has('a') || keys.has('arrowleft') || active.has('left')), accelerate: keys.has('w') || keys.has('arrowup') || active.has('accelerate'), brake: keys.has('s') || keys.has('arrowdown') || active.has('brake'), drift: keys.has(' ') || active.has('drift'), nitro: keys.has('shift') || active.has('nitro') };
   }
   function updateRaceUI() {
     if (!race) return;

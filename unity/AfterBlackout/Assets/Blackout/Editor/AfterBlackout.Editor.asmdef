@@ -1,0 +1,12 @@
+{
+  "name": "AfterBlackout.Editor",
+  "references": [
+    "AfterBlackout.Core",
+    "AfterBlackout.Runtime",
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

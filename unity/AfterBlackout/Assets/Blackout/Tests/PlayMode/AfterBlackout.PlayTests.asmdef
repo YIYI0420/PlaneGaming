@@ -1,0 +1,5 @@
+{
+  "name": "AfterBlackout.PlayTests",
+  "references": ["AfterBlackout.Core", "AfterBlackout.Runtime", "Unity.RenderPipelines.Core.Runtime", "Unity.RenderPipelines.Universal.Runtime"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}

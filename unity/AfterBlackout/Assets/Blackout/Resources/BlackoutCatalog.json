@@ -1,0 +1,820 @@
+{
+  "guns": [
+    {
+      "name": "M4A1 突击步枪",
+      "mag": 30,
+      "reserve": 90,
+      "damage": 30,
+      "interval": 0.125,
+      "reload": 1.75,
+      "recoil": 0.06,
+      "spread": 0.004,
+      "supply": 30,
+      "cap": 180,
+      "desc": "稳定连射 / 均衡可靠",
+      "id": "m4",
+      "shortName": "M4A1"
+    },
+    {
+      "name": "AK-47 突击步枪",
+      "mag": 30,
+      "reserve": 90,
+      "damage": 40,
+      "interval": 0.17,
+      "reload": 2.2,
+      "recoil": 0.115,
+      "spread": 0.009,
+      "supply": 30,
+      "cap": 180,
+      "desc": "高单发伤害 / 后坐更强",
+      "id": "ak",
+      "shortName": "AK-47"
+    },
+    {
+      "name": "AWM 栓动狙击枪",
+      "mag": 5,
+      "reserve": 20,
+      "damage": 158,
+      "interval": 1.12,
+      "reload": 2.55,
+      "recoil": 0.16,
+      "spread": 0.002,
+      "supply": 5,
+      "cap": 40,
+      "desc": "高精度点杀 / 五发弹匣",
+      "id": "awm",
+      "shortName": "AWM"
+    },
+    {
+      "name": "P-12 备用手枪",
+      "mag": 12,
+      "reserve": -1,
+      "damage": 36,
+      "interval": 0.3125,
+      "reload": 1.25,
+      "recoil": 0.085,
+      "spread": 0.004,
+      "id": "pistol",
+      "cap": -1,
+      "supply": 0,
+      "shortName": "P-12"
+    }
+  ],
+  "melee": [
+    {
+      "name": "军用匕首",
+      "short": "军用匕首",
+      "damage": 65,
+      "interval": 0.4,
+      "range": 1.95,
+      "angle": 38,
+      "cleave": 1,
+      "backstab": 1.4,
+      "armor": 1,
+      "color": "#97b2b5",
+      "desc": "均衡 · 快速刺击",
+      "mag": 0,
+      "reload": 0,
+      "recoil": 0,
+      "id": "combat",
+      "light": {
+        "duration": 0.4,
+        "windup": 0.1,
+        "active": 0.1,
+        "damage": 1,
+        "range": 0,
+        "angle": 38,
+        "cleave": 1
+      },
+      "heavy": {
+        "duration": 0.86,
+        "windup": 0.31,
+        "active": 0.14,
+        "damage": 2.15,
+        "range": 0.25,
+        "angle": 24,
+        "cleave": 1
+      }
+    },
+    {
+      "name": "爪刀",
+      "short": "爪刀",
+      "damage": 48,
+      "interval": 0.29,
+      "range": 1.65,
+      "angle": 42,
+      "cleave": 1,
+      "backstab": 2.2,
+      "armor": 1,
+      "color": "#d9aa78",
+      "desc": "极速 · 背刺强化",
+      "mag": 0,
+      "reload": 0,
+      "recoil": 0,
+      "id": "karambit",
+      "light": {
+        "duration": 0.29,
+        "windup": 0.07,
+        "active": 0.08,
+        "damage": 1,
+        "range": 0,
+        "angle": 42,
+        "cleave": 1
+      },
+      "heavy": {
+        "duration": 0.72,
+        "windup": 0.25,
+        "active": 0.13,
+        "damage": 2.2,
+        "range": 0.12,
+        "angle": 46,
+        "cleave": 1
+      }
+    },
+    {
+      "name": "开山刀",
+      "short": "开山刀",
+      "damage": 95,
+      "interval": 0.68,
+      "range": 2.3,
+      "angle": 65,
+      "cleave": 3,
+      "backstab": 1.2,
+      "armor": 1,
+      "color": "#91b68d",
+      "desc": "横扫 · 最多三目标",
+      "mag": 0,
+      "reload": 0,
+      "recoil": 0,
+      "id": "machete",
+      "light": {
+        "duration": 0.68,
+        "windup": 0.18,
+        "active": 0.16,
+        "damage": 1,
+        "range": 0,
+        "angle": 65,
+        "cleave": 3
+      },
+      "heavy": {
+        "duration": 1.18,
+        "windup": 0.43,
+        "active": 0.2,
+        "damage": 2.05,
+        "range": 0.18,
+        "angle": 72,
+        "cleave": 3
+      }
+    },
+    {
+      "name": "武士刀",
+      "short": "武士刀",
+      "damage": 115,
+      "interval": 0.82,
+      "range": 2.8,
+      "angle": 48,
+      "cleave": 2,
+      "backstab": 1.3,
+      "armor": 1,
+      "color": "#b1b7d9",
+      "desc": "长距离 · 双目标",
+      "mag": 0,
+      "reload": 0,
+      "recoil": 0,
+      "id": "katana",
+      "light": {
+        "duration": 0.82,
+        "windup": 0.21,
+        "active": 0.17,
+        "damage": 1,
+        "range": 0,
+        "angle": 48,
+        "cleave": 2
+      },
+      "heavy": {
+        "duration": 1.32,
+        "windup": 0.49,
+        "active": 0.18,
+        "damage": 2.3,
+        "range": 0.35,
+        "angle": 26,
+        "cleave": 1
+      }
+    },
+    {
+      "name": "战斧",
+      "short": "战斧",
+      "damage": 165,
+      "interval": 1.1,
+      "range": 2.1,
+      "angle": 44,
+      "cleave": 1,
+      "backstab": 1.2,
+      "armor": 1.35,
+      "color": "#dd9273",
+      "desc": "重击 · 对护甲增伤",
+      "mag": 0,
+      "reload": 0,
+      "recoil": 0,
+      "id": "axe",
+      "light": {
+        "duration": 1.1,
+        "windup": 0.27,
+        "active": 0.2,
+        "damage": 1,
+        "range": 0,
+        "angle": 44,
+        "cleave": 1
+      },
+      "heavy": {
+        "duration": 1.52,
+        "windup": 0.6,
+        "active": 0.22,
+        "damage": 2.3,
+        "range": 0.15,
+        "angle": 40,
+        "cleave": 2
+      }
+    }
+  ],
+  "chapters": [
+    {
+      "id": "depot",
+      "name": "公交总站",
+      "subtitle": "总站停车场 → 东侧维修棚 → 北侧撤离通道",
+      "story": "最后一班车不会来了。接通电力，穿过感染者的包围，离开总站。",
+      "obstacles": [
+        {
+          "id": "bus-west",
+          "x1": -14,
+          "x2": -10,
+          "z1": -14,
+          "z2": 1,
+          "height": 2.9
+        },
+        {
+          "id": "bus-east",
+          "x1": 5,
+          "x2": 9,
+          "z1": -6,
+          "z2": 9,
+          "height": 2.9
+        },
+        {
+          "id": "bus-cross",
+          "x1": -16,
+          "x2": -3,
+          "z1": 8,
+          "z2": 11.5,
+          "height": 2.9
+        },
+        {
+          "id": "garage-wall-west",
+          "x1": 13,
+          "x2": 13.4,
+          "z1": 3,
+          "z2": 17,
+          "height": 4.8
+        },
+        {
+          "id": "garage-wall-east",
+          "x1": 22,
+          "x2": 22.4,
+          "z1": 3,
+          "z2": 17,
+          "height": 4.8
+        },
+        {
+          "id": "garage-wall-north",
+          "x1": 13,
+          "x2": 16,
+          "z1": 3,
+          "z2": 3.4,
+          "height": 4.8
+        },
+        {
+          "id": "cover-west",
+          "x1": -6,
+          "x2": -2,
+          "z1": -7,
+          "z2": -6.1,
+          "height": 0.7
+        },
+        {
+          "id": "crates-west",
+          "x1": -21,
+          "x2": -18,
+          "z1": -19,
+          "z2": -16,
+          "height": 1.3
+        }
+      ],
+      "box": {
+        "x": 18,
+        "y": 0,
+        "z": 11
+      },
+      "grid": {
+        "x1": -20,
+        "x2": -15,
+        "z1": -14,
+        "z2": -5
+      },
+      "turret": {
+        "x": 18,
+        "y": 0,
+        "z": 1
+      },
+      "portals": [
+        {
+          "x": -22,
+          "y": 0,
+          "z": -9
+        },
+        {
+          "x": 22,
+          "y": 0,
+          "z": -18
+        },
+        {
+          "x": 0,
+          "y": 0,
+          "z": -25
+        }
+      ],
+      "pickups": [
+        {
+          "id": 0,
+          "type": "ammo",
+          "x": -17,
+          "y": 0,
+          "z": 0
+        },
+        {
+          "id": 1,
+          "type": "ammo",
+          "x": 18,
+          "y": 0,
+          "z": 5
+        },
+        {
+          "id": 2,
+          "type": "health",
+          "x": -3,
+          "y": 0,
+          "z": -18
+        }
+      ],
+      "gate": {
+        "x1": -3.1,
+        "x2": 3.1,
+        "z1": -29.6,
+        "z2": -29.2
+      },
+      "exit": {
+        "x": 0,
+        "y": 0,
+        "z": -31
+      },
+      "waves": [
+        {
+          "walkers": 8,
+          "runners": 0,
+          "armor": 0
+        },
+        {
+          "walkers": 12,
+          "runners": 3,
+          "armor": 0
+        },
+        {
+          "walkers": 14,
+          "runners": 4,
+          "armor": 1
+        }
+      ],
+      "bossName": "守门者",
+      "bossHp": 9600,
+      "bossColor": "#4d5e65",
+      "bossSkills": [
+        "toxic",
+        "charge",
+        "slam"
+      ],
+      "toxicExtra": 0,
+      "shockPhase": 2,
+      "skillRate": 1,
+      "evacSeconds": 18,
+      "palette": {
+        "top": "#0e1a2b",
+        "horizon": "#70614a",
+        "fog": "#49534f",
+        "sun": "#ffcf92",
+        "ground": "#89918c"
+      },
+      "index": 0,
+      "spawn": {
+        "x": 0,
+        "y": 0,
+        "z": 19
+      },
+      "bossSpawn": {
+        "x": 0,
+        "y": 0,
+        "z": -19
+      },
+      "bounds": {
+        "x1": -24,
+        "x2": 24,
+        "z1": -32,
+        "z2": 24
+      }
+    },
+    {
+      "id": "harbor",
+      "name": "雨夜货运码头",
+      "subtitle": "西侧仓库穿行 → 集装箱回廊 → 东北登船口",
+      "story": "撤离船的信号来自码头。穿过集装箱堆场，恢复航标，击退潮噬者。",
+      "obstacles": [
+        {
+          "id": "warehouse-west",
+          "x1": -30,
+          "x2": -29.6,
+          "z1": -18,
+          "z2": 10,
+          "height": 5
+        },
+        {
+          "id": "warehouse-east-upper",
+          "x1": -12,
+          "x2": -11.6,
+          "z1": -18,
+          "z2": -1,
+          "height": 5
+        },
+        {
+          "id": "warehouse-east-lower",
+          "x1": -12,
+          "x2": -11.6,
+          "z1": 5,
+          "z2": 12,
+          "height": 5
+        },
+        {
+          "id": "warehouse-north",
+          "x1": -30,
+          "x2": -12,
+          "z1": -18,
+          "z2": -17.6,
+          "height": 5
+        },
+        {
+          "id": "container-cross",
+          "x1": -4,
+          "x2": 10,
+          "z1": 6,
+          "z2": 10,
+          "height": 3.2
+        },
+        {
+          "id": "container-west",
+          "x1": 1,
+          "x2": 5,
+          "z1": -14,
+          "z2": 1,
+          "height": 3.2
+        },
+        {
+          "id": "container-east",
+          "x1": 16,
+          "x2": 20,
+          "z1": -5,
+          "z2": 10,
+          "height": 3.2
+        },
+        {
+          "id": "container-north",
+          "x1": -6,
+          "x2": 7,
+          "z1": -26,
+          "z2": -22,
+          "height": 3.2
+        },
+        {
+          "id": "crates-west",
+          "x1": -25,
+          "x2": -22,
+          "z1": -13,
+          "z2": -10,
+          "height": 1.4
+        },
+        {
+          "id": "cover-east",
+          "x1": 23,
+          "x2": 29,
+          "z1": -17,
+          "z2": -16.1,
+          "height": 0.7
+        }
+      ],
+      "box": {
+        "x": -25,
+        "y": 0,
+        "z": -4
+      },
+      "grid": {
+        "x1": 8,
+        "x2": 14,
+        "z1": -14,
+        "z2": -6
+      },
+      "turret": {
+        "x": -7,
+        "y": 0,
+        "z": 4
+      },
+      "portals": [
+        {
+          "x": -32,
+          "y": 0,
+          "z": -25
+        },
+        {
+          "x": 32,
+          "y": 0,
+          "z": -11
+        },
+        {
+          "x": 5,
+          "y": 0,
+          "z": -33
+        }
+      ],
+      "pickups": [
+        {
+          "id": 0,
+          "type": "ammo",
+          "x": -23,
+          "y": 0,
+          "z": 4
+        },
+        {
+          "id": 1,
+          "type": "ammo",
+          "x": 26,
+          "y": 0,
+          "z": 5
+        },
+        {
+          "id": 2,
+          "type": "health",
+          "x": -6,
+          "y": 0,
+          "z": -10
+        }
+      ],
+      "gate": {
+        "x1": 23,
+        "x2": 29,
+        "z1": -31.5,
+        "z2": -31.1
+      },
+      "exit": {
+        "x": 26,
+        "y": 0,
+        "z": -33
+      },
+      "waves": [
+        {
+          "walkers": 9,
+          "runners": 3,
+          "armor": 0
+        },
+        {
+          "walkers": 13,
+          "runners": 5,
+          "armor": 1
+        },
+        {
+          "walkers": 15,
+          "runners": 7,
+          "armor": 2
+        }
+      ],
+      "bossName": "潮噬者",
+      "bossHp": 10800,
+      "bossColor": "#315f76",
+      "bossSkills": [
+        "charge",
+        "toxic",
+        "charge",
+        "slam"
+      ],
+      "toxicExtra": 1,
+      "shockPhase": 2,
+      "skillRate": 0.94,
+      "evacSeconds": 21,
+      "palette": {
+        "top": "#071222",
+        "horizon": "#284656",
+        "fog": "#284651",
+        "sun": "#8fcde5",
+        "ground": "#607c8b"
+      },
+      "index": 1,
+      "spawn": {
+        "x": -23,
+        "y": 0,
+        "z": 24
+      },
+      "bossSpawn": {
+        "x": 16,
+        "y": 0,
+        "z": -20
+      },
+      "bounds": {
+        "x1": -34,
+        "x2": 34,
+        "z1": -36,
+        "z2": 30
+      }
+    },
+    {
+      "id": "reactor",
+      "name": "熔核供电站",
+      "subtitle": "变压器大厅 → 高处控制台 → 熔核决战区",
+      "story": "城市的应急电源即将失控。绕过变压器，恢复控制台，在最后的通道里迎接黎明。",
+      "obstacles": [
+        {
+          "id": "transformer-west",
+          "x1": -20,
+          "x2": -13,
+          "z1": -12,
+          "z2": -3,
+          "height": 3
+        },
+        {
+          "id": "transformer-east",
+          "x1": 10,
+          "x2": 17,
+          "z1": -21,
+          "z2": -14,
+          "height": 3
+        },
+        {
+          "id": "reactor-west",
+          "x1": -21,
+          "x2": -13,
+          "z1": 6,
+          "z2": 13,
+          "height": 4
+        },
+        {
+          "id": "reactor-east",
+          "x1": 10,
+          "x2": 17,
+          "z1": 10,
+          "z2": 17,
+          "height": 4
+        },
+        {
+          "id": "cover-west",
+          "x1": -8,
+          "x2": -3,
+          "z1": -8,
+          "z2": -7.1,
+          "height": 0.7
+        },
+        {
+          "id": "cover-east",
+          "x1": 3,
+          "x2": 8,
+          "z1": -4,
+          "z2": -3.1,
+          "height": 0.7
+        }
+      ],
+      "box": {
+        "x": 21,
+        "y": 3.2,
+        "z": 7
+      },
+      "grid": {
+        "x1": -25,
+        "x2": -19,
+        "z1": -21,
+        "z2": -13
+      },
+      "turret": {
+        "x": 21,
+        "y": 0,
+        "z": -1
+      },
+      "portals": [
+        {
+          "x": -27,
+          "y": 0,
+          "z": -25
+        },
+        {
+          "x": 27,
+          "y": 0,
+          "z": -11
+        },
+        {
+          "x": 0,
+          "y": 0,
+          "z": -30
+        }
+      ],
+      "pickups": [
+        {
+          "id": 0,
+          "type": "ammo",
+          "x": -24,
+          "y": 0,
+          "z": 0
+        },
+        {
+          "id": 1,
+          "type": "ammo",
+          "x": 21,
+          "y": 3.2,
+          "z": 5
+        },
+        {
+          "id": 2,
+          "type": "health",
+          "x": -5,
+          "y": 0,
+          "z": -22
+        }
+      ],
+      "gate": {
+        "x1": -3.1,
+        "x2": 3.1,
+        "z1": -33.5,
+        "z2": -33.1
+      },
+      "exit": {
+        "x": 0,
+        "y": 0,
+        "z": -35
+      },
+      "waves": [
+        {
+          "walkers": 10,
+          "runners": 3,
+          "armor": 1
+        },
+        {
+          "walkers": 14,
+          "runners": 6,
+          "armor": 3
+        },
+        {
+          "walkers": 17,
+          "runners": 8,
+          "armor": 4
+        }
+      ],
+      "bossName": "熔核暴君",
+      "bossHp": 13200,
+      "bossColor": "#795044",
+      "bossSkills": [
+        "slam",
+        "charge",
+        "toxic",
+        "slam"
+      ],
+      "toxicExtra": 1,
+      "shockPhase": 1,
+      "skillRate": 0.85,
+      "evacSeconds": 24,
+      "palette": {
+        "top": "#1c1520",
+        "horizon": "#74452f",
+        "fog": "#57483e",
+        "sun": "#ffb078",
+        "ground": "#8b7970"
+      },
+      "index": 2,
+      "spawn": {
+        "x": 0,
+        "y": 0,
+        "z": 23
+      },
+      "bossSpawn": {
+        "x": 0,
+        "y": 0,
+        "z": -22
+      },
+      "bounds": {
+        "x1": -30,
+        "x2": 30,
+        "z1": -38,
+        "z2": 28
+      }
+    }
+  ]
+}

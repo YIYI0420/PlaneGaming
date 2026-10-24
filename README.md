@@ -1,5 +1,13 @@
 # ORBIT 游戏合集
 
+## Unity + URP 迁移工程
+
+《断电之后》的 Unity 源工程位于 [unity/AfterBlackout](unity/AfterBlackout/README.md)，使用 Unity 6000.6.7f1 与 URP 17.6。包含三关、贴图骨骼僵尸、独立枪械/近战模型、PBR 环境材质和完整撤离流程。
+
+Unity 网页版入口：https://yiyi0420.github.io/PlaneGaming/unity-game/
+
+下面的 Three.js 入口作为轻量版继续提供。
+
 ## 新游戏：断电之后
 
 手机优先的单人 3D 僵尸 FPS。三张独立地图、每关三波进攻、电网/炮台二选一、三种强化，以及开闸撤离流程。支持 M4A1、AK-47、AWM，红点、四倍与八倍镜，另带备用手枪。新增 Shift 奔跑、五种拥有独立轻重击动作的可选近战武器，以及 9600 血、拥有护甲弱点和三阶段技能的最终首领；可直接进入首领训练。

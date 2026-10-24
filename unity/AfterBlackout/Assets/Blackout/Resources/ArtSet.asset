@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 347d45e2269d1a84baa928346c754b1c, type: 3}
+  m_Name: ArtSet
+  m_EditorClassIdentifier: AfterBlackout.Runtime::AfterBlackout.ArtSet
+  walker: {fileID: 8271760035648197284, guid: fdc946545b391a24b83002bc7cbabc00, type: 3}
+  runner: {fileID: 7336474925599322330, guid: 4197d56c8e8246044b6968271621bf79, type: 3}
+  armor: {fileID: 3322956382325213684, guid: 182c589895f98674c93ee2caa7bad6b6, type: 3}
+  boss: {fileID: 1396109940964142, guid: f6582074d83ded2438b68262c1127bfd, type: 3}
+  bus: {fileID: 0}
+  container: {fileID: 0}
+  transformer: {fileID: 0}
+  m4: {fileID: 8159919760580807733, guid: 3ecbc283ef3bdbe41acfeb5d3ece84c8, type: 3}
+  ak: {fileID: 5973414117080977111, guid: b8b3f11f2c1f31a4e935a1015bb0636a, type: 3}
+  awm: {fileID: 9142626633866158115, guid: 8d573e309f544754aa9e3b3b609061de, type: 3}
+  pistol: {fileID: 6063243091154955861, guid: 855c861c9adf0b647afeff949a683d78, type: 3}
+  combat: {fileID: 4429977800203701980, guid: 0a0ce4c379c7ff04a9dae7a2b7999206, type: 3}
+  karambit: {fileID: 2394272768159769086, guid: b4143b11f7306a948bfd9b67d6889d95, type: 3}
+  machete: {fileID: 913005212381765023, guid: 59c920d290565484fb8b81b1c3b94493, type: 3}
+  katana: {fileID: 2293880040197999972, guid: 62a6c2a30175d2e429b4ced05f6c44f3, type: 3}
+  axe: {fileID: 2772120097870278095, guid: 1630f04c19c1b34498b9d81e2f0edff4, type: 3}
+  concrete: {fileID: 2100000, guid: d22ab5f1ccdeaae41849b6be1bee886b, type: 2}
+  metal: {fileID: 2100000, guid: ef81d14bacc30a747b16592e67a56a1a, type: 2}
+  asphalt: {fileID: 2100000, guid: 16ad79c6a1bda224e941a593a9f6d9a9, type: 2}
+  brick: {fileID: 2100000, guid: 78f79b7009b97564a98cebb96181e9be, type: 2}
+  wood: {fileID: 2100000, guid: e07b18ca7e5c9544dbeddf12da13438a, type: 2}

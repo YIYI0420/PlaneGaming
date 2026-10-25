@@ -51,7 +51,7 @@ namespace AfterBlackout
             if(Player!=null)Player.enabled=false;foreach(var e in Enemies)if(e!=null)e.Freeze();
         }
         public void Pause(bool paused)
-        { if(Menu||Loading||Session==null||Session.Result!=null)return;Session.Paused=paused;Time.timeScale=paused?0:1;Input.Clear();Cursor.lockState=paused?CursorLockMode.None:Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=paused||Application.isMobilePlatform; }
+        { if(Menu||Loading||Session==null||Session.Result!=null)return;PlayerPrefs.Save();Session.Paused=paused;Time.timeScale=paused?0:1;Input.Clear();Cursor.lockState=paused?CursorLockMode.None:Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=paused||Application.isMobilePlatform; }
         void OnApplicationFocus(bool focus) { if(!focus)Pause(true); }
         void OnApplicationPause(bool paused) { if(paused)Pause(true); }
         void Update()

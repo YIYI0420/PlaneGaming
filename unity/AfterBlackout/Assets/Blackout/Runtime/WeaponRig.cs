@@ -10,7 +10,7 @@ namespace AfterBlackout
         public GunState Primary,Pistol;public int Slot,Grenades=2;public MeleeAction Action;public bool Aiming;public float Zoom=1;
         public bool Attacking { get { return Action!=null; } }public GunState Gun { get { return Slot==1?Pistol:Primary; } }
         public MeleeDefinition Blade { get; private set; }public Camera Overlay;public Transform PoseRoot;public bool LastHead;
-        public float HitUntil,Recoil;GameRoot root;PlayerRig player;GameObject model;int combo;float grenadeCooldown,switchCooldown;
+        public float HitUntil,Recoil;GameRoot root;PlayerRig player;GameObject model;Vector3 sightCenter=new Vector3(0,.16f,.095f);int combo;float grenadeCooldown,switchCooldown;
         public void Initialize(GameRoot game,PlayerRig rig)
         {
             root=game;player=rig;Primary=new GunState(game.Catalog.Gun(game.Session.Loadout.primary));Pistol=new GunState(game.Catalog.Gun("pistol"));Blade=game.Catalog.Blade(game.Session.Loadout.melee);
@@ -38,7 +38,11 @@ namespace AfterBlackout
         }
         public void Switch(int slot)
         { if(Action!=null||root.Session.Frozen)return;Slot=(slot+3)%3;Primary.CancelReload();Pistol.CancelReload();root.Input.AimToggle=false;switchCooldown=.18f;Rebuild(); }
-        void Rebuild() { if(model!=null)Destroy(model);model=VisualFactory.Weapon(PoseRoot,Slot==2?Blade.id:Slot==1?"pistol":Primary.Definition.id,Slot==2); }
+        void Rebuild()
+        {
+            if(model!=null)Destroy(model);model=VisualFactory.Weapon(PoseRoot,Slot==2?Blade.id:Slot==1?"pistol":Primary.Definition.id,Slot==2);
+            if(Slot!=2)foreach(var t in model.GetComponentsInChildren<Transform>(true))if(t.name=="RedDot")sightCenter=PoseRoot.InverseTransformPoint(t.position);
+        }
         public void Reload() { if(Slot!=2&&Gun.Reload(root.Session.Upgrade==Upgrade.Reload))CombatAudio.Play("reload"); }
         bool HasTarget() { RaycastHit hit;return Physics.Raycast(player.View.ViewportPointToRay(new Vector3(.5f,.5f)),out hit,90,~((1<<10)|(1<<11)),QueryTriggerInteraction.Ignore)&&hit.collider.GetComponent<HitZone>()!=null; }
         void Shoot()
@@ -90,7 +94,7 @@ namespace AfterBlackout
             if(Slot==2){MeleePresentation.Apply(PoseRoot,Blade.id,Action);return;}
             bool scope=Aiming&&Slot==0&&Zoom>2;model.SetActive(!scope);
             float reload=Gun.Reloading?Mathf.Sin((1-Gun.ReloadRemaining/Gun.ReloadDuration)*Mathf.PI):0;
-            PoseRoot.localPosition=new Vector3(Aiming?0:.25f,(Aiming?-.16f:-.23f)-reload*.25f,.55f-Recoil*.35f);PoseRoot.localRotation=Quaternion.Euler(reload*15,0,-reload*30);
+            PoseRoot.localPosition=new Vector3(Aiming?-sightCenter.x:.25f,(Aiming?-sightCenter.y:-.23f)-reload*.25f,.55f-Recoil*.35f);PoseRoot.localRotation=Quaternion.Euler(reload*15,0,-reload*30);
             if(player.Vitals.Sprinting){PoseRoot.localPosition+=Vector3.down*.12f;PoseRoot.localRotation*=Quaternion.Euler(15,20,-25);}
         }
         public void SetOptic(string optic) { if(optic!="red"&&optic!="x4"&&optic!="x8")return;root.Session.Loadout.optic=optic;root.Loadout.optic=optic; }

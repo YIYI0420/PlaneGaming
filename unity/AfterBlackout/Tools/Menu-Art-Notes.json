@@ -1,0 +1,6 @@
+{
+  "tool": "built-in image_gen",
+  "asset": "unity/AfterBlackout/Assets/Blackout/Resources/UI/DepotMenu.png",
+  "purpose": "Menu concept artwork only; in-game geometry is unchanged.",
+  "prompt": "Cinematic 16:9 background for After the Blackout: abandoned Chinese urban bus depot at blue hour during blackout, wet worn asphalt, derelict buses on right, amber emergency light, power cables and mist. Realistic environmental concept painting, dark blue-gray negative space on left for real menu typography. Tiny distant zombie silhouette. Muted charcoal and petrol blue. No foreground gun, text, logo, UI, border or watermark."
+}

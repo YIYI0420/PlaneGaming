@@ -18,7 +18,7 @@ namespace AfterBlackout.Core
     }
     [Serializable] public class GunDefinition
     {
-        public string id,name,shortName; public int mag,reserve,supply,cap; public float damage,interval,reload,recoil,spread;
+        public string id,name,shortName,desc; public int mag,reserve,supply,cap; public float damage,interval,reload,recoil,spread;
     }
     [Serializable] public class AttackDefinition
     { public float duration,windup,active,damage,range,angle; public int cleave; public float Contact { get { return windup+active*.5f; } } }

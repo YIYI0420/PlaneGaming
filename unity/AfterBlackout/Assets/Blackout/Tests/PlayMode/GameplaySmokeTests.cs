@@ -15,6 +15,14 @@ namespace AfterBlackout.Tests
             var root=GameRoot.Instance;
             if(root==null)root=new GameObject("SmokeTestGame").AddComponent<GameRoot>();
             root.Sound=false;
+            var input=root.Input;float savedSensitivity=input.Sensitivity;
+            input.SetSensitivity(1);Assert.That(input.MouseLook(Vector2.one).x,Is.EqualTo(.65f).Within(.001f));
+            input.SetSensitivity(.5f);Assert.That(input.MouseLook(Vector2.one).x,Is.EqualTo(.325f).Within(.001f));
+            Assert.That(PlayerPrefs.GetFloat("unity-look-sensitivity"),Is.EqualTo(.5f));
+            input.SetSensitivity(999);Assert.That(input.Sensitivity,Is.EqualTo(2));input.SetSensitivity(savedSensitivity);
+            yield return null;yield return null;
+            Directory.CreateDirectory(Path.GetFullPath(Path.Combine(Application.dataPath,"../Logs/Screenshots")));
+            ScreenCapture.CaptureScreenshot(Path.GetFullPath(Path.Combine(Application.dataPath,"../Logs/Screenshots/menu.png")));yield return null;yield return null;
             string[] guns={"m4","ak","awm"};string[] blades={"combat","katana","axe"};
             for(int chapter=0;chapter<3;chapter++)
             {
@@ -40,6 +48,18 @@ namespace AfterBlackout.Tests
                 Assert.That(Vector3.Angle(player.View.ViewportPointToRay(new Vector3(.5f,.5f)).direction,player.View.transform.forward),Is.LessThan(.01f));
                 Transform dot=null;foreach(var t in player.Weapon.PoseRoot.GetComponentsInChildren<Transform>(true))if(t.name=="RedDot")dot=t;Assert.That(dot,Is.Not.Null);
                 var projection=player.Weapon.Overlay.WorldToViewportPoint(dot.position);Assert.That(projection.x,Is.EqualTo(.5f).Within(.005f));Assert.That(projection.y,Is.EqualTo(.5f).Within(.005f));
+                Assert.That(dot.parent.name,Is.EqualTo("OpticAssembly"),"reticle must belong to the mounted sight");
+                Assert.That(dot.parent.Find("OpticBase"),Is.Not.Null);Assert.That(dot.parent.Find("OpticRiser"),Is.Not.Null);
+                Capture(player.View,"ads-"+guns[chapter]);yield return null;
+                var viewRotation=player.View.transform.localRotation;player.View.transform.localRotation=Quaternion.Euler(-35,0,0);Capture(player.View,"ads-sky-"+guns[chapter]);player.View.transform.localRotation=viewRotation;
+                if(chapter==0)
+                {
+                    player.Weapon.Switch(1);yield return new WaitForSeconds(.3f);root.Input.AimToggle=true;yield return new WaitForSeconds(.3f);
+                    Transform pistolDot=player.Weapon.PoseRoot.Find("Weapon_pistol/OpticAssembly/RedDot");
+                    foreach(var t in player.Weapon.PoseRoot.GetComponentsInChildren<Transform>())if(t.name=="RedDot")pistolDot=t;
+                    Assert.That(pistolDot,Is.Not.Null);var pp=player.Weapon.Overlay.WorldToViewportPoint(pistolDot.position);Assert.That(pp.x,Is.EqualTo(.5f).Within(.005f));Assert.That(pp.y,Is.EqualTo(.5f).Within(.005f));
+                    player.Weapon.Switch(0);yield return new WaitForSeconds(.3f);root.Input.AimToggle=true;yield return new WaitForSeconds(.3f);
+                }
                 var target=root.Spawn(EnemyKind.Walker,new Point{x=player.transform.position.x,y=player.transform.position.y,z=player.transform.position.z-4});target.enabled=false;target.Agent.enabled=false;
                 root.Input.FireHeld=true;yield return new WaitForSeconds(2.4f);root.Input.FireHeld=false;
                 Assert.That(target==null||target.Dead,Is.True,"centre ray must hit the visible target while aiming");

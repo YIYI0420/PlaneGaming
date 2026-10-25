@@ -14,6 +14,8 @@ namespace AfterBlackout.Editor
         public static void Generate()
         {
             Directory.CreateDirectory(Generated);AssetDatabase.Refresh();
+            var menuImporter=AssetImporter.GetAtPath("Assets/Blackout/Resources/UI/DepotMenu.png") as TextureImporter;
+            if(menuImporter!=null){menuImporter.textureType=TextureImporterType.Default;menuImporter.mipmapEnabled=false;menuImporter.maxTextureSize=2048;menuImporter.textureCompression=TextureImporterCompression.CompressedHQ;menuImporter.SaveAndReimport();}
             var art=Resources.Load<ArtSet>("ArtSet");
             art.asphalt=Surface("Asphalt012",new Color(.75f,.78f,.8f));art.brick=Surface("Bricks052",Color.white);art.metal=Surface("MetalPlates006",new Color(.65f,.72f,.76f));art.wood=Surface("Wood051",new Color(.65f,.5f,.35f));
             var skin=Pbr("ZombieSkin","Assets/Blackout/Art/Zombie/difusse.jpg","Assets/Blackout/Art/Zombie/normal.JPG",null,null,new Color(.85f,.9f,.84f));skin.SetFloat("_Smoothness",.23f);EditorUtility.SetDirty(skin);
@@ -108,7 +110,7 @@ namespace AfterBlackout.Editor
             bounds=BoundsOf(model);model.transform.localScale*=length/Mathf.Max(.01f,bounds.size.z);bounds=BoundsOf(model);model.transform.localPosition+=new Vector3(-bounds.center.x,-bounds.max.y+.085f,-bounds.center.z+.12f);
             Material m4=null;if(id=="m4")m4=Pbr("M4A1",Weapons+"M4A1/M4A1_Base_Color.png",Weapons+"M4A1/M4A1_Normal.png",Weapons+"M4A1/M4A1_Roughness.png",Weapons+"M4A1/M4A1_Metallic.png",Color.white);
             foreach(var renderer in model.GetComponentsInChildren<Renderer>())renderer.sharedMaterials=renderer.sharedMaterials.Select(m=>m4!=null?m4:ConvertMaterial(m)).ToArray();
-            Sight(root.transform);Hands(root.transform,id);return Save(root,"Weapon_"+id);
+            Sight(root.transform,RailHeight(root.transform,model));Hands(root.transform,id);return Save(root,"Weapon_"+id);
         }
         static Material ConvertMaterial(Material source)
         {
@@ -129,11 +131,38 @@ namespace AfterBlackout.Editor
             Part(root.transform,"RightGlove",new Vector3(0,-.06f,0),new Vector3(.09f,.11f,.07f),Finish("Glove",new Color(.15f,.18f,.14f),0,.18f),PrimitiveType.Capsule);
             var support=Part(root.transform,"SupportGlove",new Vector3(0,-.21f,0),new Vector3(.09f,.11f,.07f),Finish("Glove",new Color(.15f,.18f,.14f),0,.18f),PrimitiveType.Capsule);support.SetActive(id=="katana");return Save(root,"Blade_"+id);
         }
-        static void Sight(Transform root)
+        // Intersect the actual receiver mesh, rather than assuming every imported gun has the same rail height.
+        static float RailHeight(Transform root,GameObject model)
+        {
+            float top=float.NegativeInfinity;
+            foreach(var filter in model.GetComponentsInChildren<MeshFilter>())
+            {
+                var mesh=filter.sharedMesh;if(mesh==null)continue;var vertices=mesh.vertices;var indices=mesh.triangles;var matrix=root.worldToLocalMatrix*filter.transform.localToWorldMatrix;
+                for(int i=0;i<indices.Length;i+=3)
+                {
+                    Vector3 a=matrix.MultiplyPoint3x4(vertices[indices[i]]),b=matrix.MultiplyPoint3x4(vertices[indices[i+1]]),c=matrix.MultiplyPoint3x4(vertices[indices[i+2]]);
+                    float d=(b.z-c.z)*(a.x-c.x)+(c.x-b.x)*(a.z-c.z);if(Mathf.Abs(d)<.0000001f)continue;
+                    foreach(float z in new[]{.055f,.08f,.105f})
+                    {
+                        float u=((b.z-c.z)*(-c.x)+(c.x-b.x)*(z-c.z))/d;
+                        float v=((c.z-a.z)*(-c.x)+(a.x-c.x)*(z-c.z))/d;
+                        if(u>=-.001f&&v>=-.001f&&u+v<=1.001f)top=Mathf.Max(top,u*a.y+v*b.y+(1-u-v)*c.y);
+                    }
+                }
+            }
+            return float.IsNegativeInfinity(top)?.04f:top;
+        }
+        static void Sight(Transform root,float railHeight)
         {
             var dark=Finish("OpticFrame",new Color(.05f,.06f,.065f),.75f,.3f);
-            Part(root,"SightLeft",new Vector3(-.043f,.16f,.08f),new Vector3(.011f,.075f,.04f),dark);Part(root,"SightRight",new Vector3(.043f,.16f,.08f),new Vector3(.011f,.075f,.04f),dark);Part(root,"SightTop",new Vector3(0,.198f,.08f),new Vector3(.096f,.011f,.04f),dark);
-            var red=Finish("OpticDot",Color.red,0,.2f);red.EnableKeyword("_EMISSION");red.SetColor("_EmissionColor",Color.red*3);Part(root,"RedDot",new Vector3(0,.16f,.095f),Vector3.one*.0035f,red,PrimitiveType.Sphere);
+            var assembly=new GameObject("OpticAssembly").transform;assembly.SetParent(root,false);assembly.localPosition=new Vector3(0,railHeight,.08f);
+            Part(assembly,"OpticBase",new Vector3(0,.006f,0),new Vector3(.074f,.016f,.095f),dark);
+            Part(assembly,"OpticRiser",new Vector3(0,.021f,0),new Vector3(.052f,.020f,.055f),dark);
+            Part(assembly,"SightBottom",new Vector3(0,.034f,0),new Vector3(.086f,.012f,.04f),dark);
+            Part(assembly,"SightLeft",new Vector3(-.038f,.065f,0),new Vector3(.010f,.066f,.04f),dark);
+            Part(assembly,"SightRight",new Vector3(.038f,.065f,0),new Vector3(.010f,.066f,.04f),dark);
+            Part(assembly,"SightTop",new Vector3(0,.098f,0),new Vector3(.086f,.010f,.04f),dark);
+            var red=Finish("OpticDot",Color.red,0,.2f);red.EnableKeyword("_EMISSION");red.SetColor("_EmissionColor",Color.red*3);Part(assembly,"RedDot",new Vector3(0,.065f,.015f),Vector3.one*.0026f,red,PrimitiveType.Sphere);
         }
         static void Hands(Transform root,string id)
         {

@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Generate','Web','Windows','Test','PlayTest')][string]$Target='Web',
+    [ValidateSet('Generate','Art','Web','Windows','Test','PlayTest')][string]$Target='Web',
     [string]$EditorPath
 )
 $ErrorActionPreference='Stop'
@@ -20,7 +20,8 @@ else{$arguments+='-nographics'}
 if ($Target -in @('Test','PlayTest')) { $platform=if($Target -eq 'Test'){'EditMode'}else{'PlayMode'};$arguments+=@('-runTests','-testPlatform',$platform,'-testResults',(Join-Path $logRoot ($platform+'.xml'))) }
 else {
     $method=switch($Target){'Generate'{'Generate'}'Web'{'BuildWeb'}'Windows'{'BuildWindows'}}
-    $arguments+=@('-quit','-executeMethod',('AfterBlackout.Editor.ProjectBuilder.'+$method))
+    $execute=if($Target -eq 'Art'){'AfterBlackout.Editor.ArtUpgrade.Generate'}else{'AfterBlackout.Editor.ProjectBuilder.'+$method}
+    $arguments+=@('-quit','-executeMethod',$execute)
     if($Target -eq 'Web'){$arguments+=@('-buildTarget','WebGL')}
     if($Target -eq 'Windows'){$arguments+=@('-buildTarget','Win64')}
 }

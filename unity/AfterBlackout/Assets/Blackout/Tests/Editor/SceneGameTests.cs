@@ -47,6 +47,25 @@ namespace AfterBlackout.Tests
             Assert.That(Resources.Load<ArtSet>("ArtSet").concrete.GetTexture("_BumpMap"),Is.Not.Null);
             var art=Resources.Load<ArtSet>("ArtSet");foreach(var prefab in new[]{art.walker,art.runner,art.armor,art.boss}){Assert.That(prefab,Is.Not.Null);Assert.That(prefab.GetComponentInChildren<SkinnedMeshRenderer>(),Is.Not.Null);Assert.That(prefab.GetComponentInChildren<Animator>().runtimeAnimatorController,Is.Not.Null);}
             foreach(var prefab in new[]{art.m4,art.ak,art.awm,art.pistol,art.combat,art.karambit,art.machete,art.katana,art.axe})Assert.That(prefab,Is.Not.Null);
+            Assert.That(Resources.Load<Texture2D>("UI/DepotMenu"),Is.Not.Null);
+        }
+        [TestCase("m4")] [TestCase("ak")] [TestCase("awm")] [TestCase("pistol")]
+        public void OpticBaseContactsReceiverInsteadOfFloating(string gun)
+        {
+            var instance=Object.Instantiate(Resources.Load<ArtSet>("ArtSet").Weapon(gun));
+            try
+            {
+                var mesh=instance.transform.Find("Mesh");foreach(var filter in mesh.GetComponentsInChildren<MeshFilter>())filter.gameObject.AddComponent<MeshCollider>().sharedMesh=filter.sharedMesh;
+                Physics.SyncTransforms();var assembly=instance.transform.Find("OpticAssembly");Assert.That(assembly,Is.Not.Null);
+                var mount=assembly.Find("OpticBase").GetComponent<Renderer>().bounds;float nearest=float.MaxValue;
+                foreach(float z in new[]{-.025f,0,.025f})
+                {
+                    var origin=assembly.TransformPoint(new Vector3(0,.4f,z));RaycastHit hit;
+                    if(Physics.Raycast(origin,Vector3.down,out hit,1,~0,QueryTriggerInteraction.Ignore)&&hit.collider.transform.IsChildOf(mesh))nearest=Mathf.Min(nearest,mount.min.y-hit.point.y);
+                }
+                Assert.That(nearest,Is.InRange(-.012f,.004f),gun+" optic base must touch the actual receiver surface");
+            }
+            finally{Object.DestroyImmediate(instance);}
         }
     }
 }

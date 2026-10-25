@@ -15,7 +15,7 @@ namespace AfterBlackout
         public bool Menu=true,Loading; public int SelectedChapter;public Loadout Loadout=new Loadout();
         public readonly List<EnemyActor> Enemies=new List<EnemyActor>(); public readonly List<Result> Completed=new List<Result>();
         public string Notice="";public float NoticeUntil; public bool AutoFire=true,Sound=true;public int Quality=1;
-        float facilityClock,reinforcementClock,supplyClock;int turretAmmo;bool bossCreated;Stage previous;EnemyActor boss;
+        float facilityClock,reinforcementClock,supplyClock,cursorReleaseUntil;int turretAmmo;bool bossCreated;Stage previous;EnemyActor boss;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)] static void EnsureRoot()
         { if(FindFirstObjectByType<GameRoot>()==null)new GameObject("AfterBlackout").AddComponent<GameRoot>(); }
         void Awake()
@@ -44,23 +44,35 @@ namespace AfterBlackout
             var operation=SceneManager.LoadSceneAsync(session.Level.SceneName,LoadSceneMode.Single);if(operation==null){Loading=false;Menu=true;yield break;}while(!operation.isDone)yield return null;
             LightingPreset.Apply(session.Level);
             var playerObject=new GameObject("Player");playerObject.transform.SetParent(transform);Player=playerObject.AddComponent<PlayerRig>();Player.Initialize(this,session.Level.spawn);
-            previous=session.Stage;ApplyQuality(Quality);Loading=false;Cursor.lockState=Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=Application.isMobilePlatform;
+            previous=session.Stage;ApplyQuality(Quality);Loading=false;SetCursorCapture(true);
             Notify(session.Level.name+" · 保持移动，接通供电");
         }
         public void ReturnToMenu()
         {
-            Menu=true;Time.timeScale=1;if(Session!=null)Session.Paused=true;Input.Clear();Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
+            Menu=true;Time.timeScale=1;if(Session!=null)Session.Paused=true;Input.Clear();SetCursorCapture(false);
             if(Player!=null){Player.Weapon.Suspend();Player.enabled=false;}foreach(var e in Enemies)if(e!=null)e.Freeze();
         }
         public void Pause(bool paused)
-        { if(Menu||Loading||Session==null||Session.Result!=null)return;PlayerPrefs.Save();Session.Paused=paused;Time.timeScale=paused?0:1;Input.Clear();if(paused&&Player!=null)Player.Weapon.Suspend();Cursor.lockState=paused?CursorLockMode.None:Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=paused||Application.isMobilePlatform; }
+        { if(Menu||Loading||Session==null||Session.Result!=null)return;PlayerPrefs.Save();Session.Paused=paused;Time.timeScale=paused?0:1;Input.Clear();if(paused&&Player!=null)Player.Weapon.Suspend();SetCursorCapture(!paused); }
+        static void SetCursorCapture(bool capture)
+        {
+            bool locked=capture&&!Application.isMobilePlatform;var target=locked?CursorLockMode.Locked:CursorLockMode.None;
+            if(Cursor.lockState!=target)Cursor.lockState=target;
+            if(Cursor.visible==locked)Cursor.visible=!locked;
+        }
+        public void BrowserPointerReleased()
+        {
+            cursorReleaseUntil=Time.unscaledTime+.25f;
+            if(!Application.isMobilePlatform&&!Menu&&!Loading&&Session!=null&&!Session.Frozen)Pause(true);
+        }
+        public void BrowserPointerCaptured(){if(Input!=null)Input.Clear();}
         void OnApplicationFocus(bool focus) { if(!focus)Pause(true); }
         void OnApplicationPause(bool paused) { if(paused)Pause(true); }
         void Update()
         {
             if(Menu||Loading||Session==null)return;
-            if(UnityEngine.Input.GetKeyDown(KeyCode.Escape)||UnityEngine.Input.GetKeyDown(KeyCode.P))Pause(!Session.Paused);
-            if(Session.Frozen){Time.timeScale=0;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;if(Session.Result!=null)RecordResult();return;}
+            if((UnityEngine.Input.GetKeyDown(KeyCode.Escape)&&Time.unscaledTime>=cursorReleaseUntil)||UnityEngine.Input.GetKeyDown(KeyCode.P))Pause(!Session.Paused);
+            if(Session.Frozen){Time.timeScale=0;SetCursorCapture(false);if(Session.Result!=null)RecordResult();return;}
             if(Session.Stage==Stage.Briefing&&UnityEngine.Input.GetKeyDown(KeyCode.Return))StartFirstWave();
             float dt=Time.deltaTime;Session.Tick(dt);EnemyKind kind;while(Session.TrySpawn(out kind))Spawn(kind);
             if(Session.Stage==Stage.BossIntro&&!bossCreated)
@@ -104,7 +116,7 @@ namespace AfterBlackout
         public void StartFirstWave(){if(Session!=null&&!Session.Frozen&&Session.Stage==Stage.Briefing){Session.SkipBriefing();Input.Clear();}}
         public void Choose(Facility facility) { if(Session.ChooseFacility(facility)){Resupply();Notify(facility==Facility.Grid?"电网已接通":"炮台已启动");} }
         public void Choose(Upgrade upgrade) { if(Session.ChooseUpgrade(upgrade)){Resupply();if(upgrade==Upgrade.Shock)Player.Weapon.Grenades=Mathf.Min(3,Player.Weapon.Grenades+1);} }
-        void Resupply() { Time.timeScale=1;Input.Clear();Player.Vitals.Heal(18);Player.Weapon.Primary.Supply(Player.Weapon.Primary.Definition.supply);Cursor.lockState=Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=Application.isMobilePlatform; }
+        void Resupply() { Time.timeScale=1;Input.Clear();Player.Vitals.Heal(18);Player.Weapon.Primary.Supply(Player.Weapon.Primary.Definition.supply);SetCursorCapture(true); }
         public void BossPhaseChanged() { Player.Vitals.Heal(25);Player.Weapon.Primary.Supply(Player.Weapon.Primary.Definition.supply*2);RefreshPickups();Hazard.ClearAll();Notify("护甲重组 · 新阶段，注意随从"); }
         void RefreshPickups(bool ammoOnly=false) { foreach(var p in FindObjectsByType<SupplyPickup>(FindObjectsSortMode.None))if(!ammoOnly||p.IsAmmo)p.Refresh(); }
         void TickFacilities(float dt)

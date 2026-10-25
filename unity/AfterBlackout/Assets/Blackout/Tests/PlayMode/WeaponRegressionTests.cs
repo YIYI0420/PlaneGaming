@@ -135,6 +135,17 @@ namespace AfterBlackout.Tests
             root.Pause(true);yield return new WaitForSecondsRealtime(1.55f);Assert.That(grenade!=null,Is.True,"grenade must not detonate during pause");
             root.Pause(false);yield return new WaitForSeconds(1.55f);Assert.That(grenade==null,Is.True);
         }
+        [UnityTest] public IEnumerator BrowserMouseReleasePausesWithoutLosingWeaponOrReloadState()
+        {
+            yield return Load("m4","x8");var weapon=root.Player.Weapon;root.Input.AimToggle=true;yield return new WaitForSeconds(.2f);
+            Assert.That(weapon.ScopeView,Is.True);root.BrowserPointerReleased();
+            Assert.That(root.Session.Paused,Is.True);Assert.That(weapon.ScopeView,Is.False);Assert.That(weapon.Model.activeSelf,Is.True);
+            root.BrowserPointerReleased();yield return null;Assert.That(root.Session.Paused,Is.True,"duplicate browser events must not resume gameplay");
+            root.Pause(false);yield return new WaitForSeconds(.1f);weapon.Primary.Ammo-=2;weapon.Reload();float remaining=weapon.Primary.ReloadRemaining;
+            root.BrowserPointerReleased();yield return new WaitForSecondsRealtime(.2f);
+            Assert.That(weapon.Primary.ReloadRemaining,Is.EqualTo(remaining));root.Pause(false);yield return new WaitForSeconds(.1f);
+            root.Input.FireHeld=true;root.BrowserPointerCaptured();Assert.That(root.Input.FireHeld,Is.False,"capturing the mouse must discard the click used for capture");
+        }
         void Teleport(Point point){root.Player.Controller.enabled=false;root.Player.transform.position=GameRoot.ToVector(point);root.Player.Controller.enabled=true;}
     }
 }

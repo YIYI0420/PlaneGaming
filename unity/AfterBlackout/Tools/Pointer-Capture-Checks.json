@@ -1,0 +1,16 @@
+{
+  "revision": "pointer-capture-20261025",
+  "cause": "Unity's generated requestPointerLock call ignored the browser Promise; cancellation reached the global unhandled-rejection handler.",
+  "changes": [
+    "Catch cancellation at the canvas pointer-lock request, including Promise and event-only browser implementations.",
+    "Deduplicate pending lock requests and wait for a trusted click after cancellation.",
+    "Pause the game when mouse capture is declined or released; discard the capture click.",
+    "Avoid redundant Cursor assignments and prevent the same Esc event from immediately resuming/re-requesting capture."
+  ],
+  "checks": {
+    "node": "SecurityError cancellation, duplicate requests, Esc release, trusted retry, synchronous denial, event-only implementation, inactive user activation and unsupported browser passed; no unhandled rejection.",
+    "unityPlayMode": "6 suites passed, including cursor-release pause and reload preservation plus all prior weapon/campaign regressions.",
+    "browser": "In-app browser denied pointer lock with WrongDocumentError; the game recovered to the pause screen, getJsDialog returned undefined and no error-level logs were produced."
+  },
+  "url": "https://yiyi0420.github.io/PlaneGaming/unity-game/"
+}

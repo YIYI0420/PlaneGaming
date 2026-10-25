@@ -1,0 +1,26 @@
+{
+  "revision": "weapon-audit-20261025",
+  "fixes": [
+    "独立的手枪握持位置、握把附近的双手姿势及小型红点。",
+    "红点、四倍、八倍各自有独立模型；倍率、可见镜体、HUD和存档同步，主武器倍镜不会覆盖手枪瞄具。",
+    "切枪立即隐藏旧模型并清除旧开镜/倍率/后坐状态；重复选择当前槽位不再取消换弹。",
+    "换弹退出开镜；暂停保留装填进度、停止动作与手雷引信；菜单点击必须释放后才能射击。",
+    "手枪按点击单发，保留触屏自动开火；主武器完全无弹后切换备用手枪。",
+    "曳光从各枪实际枪口位置发出；开局可用 Enter/E 开始第一波。"
+  ],
+  "passed": {
+    "editModeTests": 14,
+    "playModeSuites": 5,
+    "coverage": [
+      "3 primary guns × 3 optics: initial selection, physical models, ADS, firing, pistol transition, paused optic changes, invalid optic input.",
+      "Pistol: centre-ray target hit, semi-automatic clicks, reload completion, same-slot selection, pause/resume, empty primary fallback.",
+      "5 knives × light/heavy: delayed contact, recovery, switch lock; grenade fuse pause/resume.",
+      "All 3 saved scenes: waves, power interaction, facilities, upgrade, boss phases, exit, next-chapter progression.",
+      "Core C# checks and 54 chapter/loadout/facility/upgrade combinations; Chinese glyph coverage."
+    ]
+  },
+  "limits": [
+    "Chapter integration tests accelerate clocks and apply scripted damage to verify transitions; they are not a manual playthrough.",
+    "Mobile browser controls were reviewed in source; no physical-phone performance or touch playtest was performed in this run."
+  ]
+}

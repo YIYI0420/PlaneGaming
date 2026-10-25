@@ -48,7 +48,7 @@ namespace AfterBlackout.Tests
                 Assert.That(Vector3.Angle(player.View.ViewportPointToRay(new Vector3(.5f,.5f)).direction,player.View.transform.forward),Is.LessThan(.01f));
                 Transform dot=null;foreach(var t in player.Weapon.PoseRoot.GetComponentsInChildren<Transform>(true))if(t.name=="RedDot")dot=t;Assert.That(dot,Is.Not.Null);
                 var projection=player.Weapon.Overlay.WorldToViewportPoint(dot.position);Assert.That(projection.x,Is.EqualTo(.5f).Within(.005f));Assert.That(projection.y,Is.EqualTo(.5f).Within(.005f));
-                Assert.That(dot.parent.name,Is.EqualTo("OpticAssembly"),"reticle must belong to the mounted sight");
+                Assert.That(dot.parent.name,Is.EqualTo("RedDotSight"),"reticle must belong to the selected sight");
                 Assert.That(dot.parent.Find("OpticBase"),Is.Not.Null);Assert.That(dot.parent.Find("OpticRiser"),Is.Not.Null);
                 Capture(player.View,"ads-"+guns[chapter]);yield return null;
                 var viewRotation=player.View.transform.localRotation;player.View.transform.localRotation=Quaternion.Euler(-35,0,0);Capture(player.View,"ads-sky-"+guns[chapter]);player.View.transform.localRotation=viewRotation;
@@ -58,6 +58,7 @@ namespace AfterBlackout.Tests
                     Transform pistolDot=player.Weapon.PoseRoot.Find("Weapon_pistol/OpticAssembly/RedDot");
                     foreach(var t in player.Weapon.PoseRoot.GetComponentsInChildren<Transform>())if(t.name=="RedDot")pistolDot=t;
                     Assert.That(pistolDot,Is.Not.Null);var pp=player.Weapon.Overlay.WorldToViewportPoint(pistolDot.position);Assert.That(pp.x,Is.EqualTo(.5f).Within(.005f));Assert.That(pp.y,Is.EqualTo(.5f).Within(.005f));
+                    Capture(player.View,"pistol-ads");root.Input.AimToggle=false;yield return new WaitForSeconds(.3f);Capture(player.View,"pistol-hip");
                     player.Weapon.Switch(0);yield return new WaitForSeconds(.3f);root.Input.AimToggle=true;yield return new WaitForSeconds(.3f);
                 }
                 var target=root.Spawn(EnemyKind.Walker,new Point{x=player.transform.position.x,y=player.transform.position.y,z=player.transform.position.z-4});target.enabled=false;target.Agent.enabled=false;
@@ -81,7 +82,7 @@ namespace AfterBlackout.Tests
             actor.Damage(100000,DamageSource.Bullet,true);yield return null;yield return null;Assert.That(root.Session.Result.won,Is.True);
             Time.timeScale=1;Object.Destroy(root.gameObject);yield return null;
         }
-        static void Capture(Camera camera,string name)
+        public static void Capture(Camera camera,string name)
         {
             string folder=Path.GetFullPath(Path.Combine(Application.dataPath,"../Logs/Screenshots"));Directory.CreateDirectory(folder);
             var target=RenderTexture.GetTemporary(1280,720,24,RenderTextureFormat.ARGB32);

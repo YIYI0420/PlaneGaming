@@ -130,7 +130,7 @@ namespace AfterBlackout.Editor
             ConfigurePlayer();AssetDatabase.Refresh();EnsureGenerated();string output=Path.GetFullPath(Path.Combine(Application.dataPath,"../../../unity-game"));Directory.CreateDirectory(output);
             var options=new BuildPlayerOptions {scenes=EnabledScenes(),locationPathName=output,target=BuildTarget.WebGL,options=BuildOptions.None};var report=BuildPipeline.BuildPlayer(options);
             if(report.summary.result!=UnityEditor.Build.Reporting.BuildResult.Succeeded)throw new Exception("Unity Web build failed: "+report.summary.result);
-            File.WriteAllText(Path.Combine(output,".nojekyll"),"");File.WriteAllText(Path.Combine(output,"build-info.json"),"{\"engine\":\"Unity "+Application.unityVersion+"\",\"pipeline\":\"URP\",\"chapters\":3}");Debug.Log("Unity Web build ready: "+output);
+            File.WriteAllText(Path.Combine(output,".nojekyll"),"");File.WriteAllText(Path.Combine(output,"build-info.json"),"{\"engine\":\"Unity "+Application.unityVersion+"\",\"pipeline\":\"URP\",\"chapters\":3,\"revision\":\"weapon-audit-20261025\"}");Debug.Log("Unity Web build ready: "+output);
         }
         [MenuItem("After Blackout/Build Windows player")]
         public static void BuildWindows()

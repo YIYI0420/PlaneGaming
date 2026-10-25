@@ -24,6 +24,8 @@ namespace AfterBlackout
             var asset=Resources.Load<TextAsset>("BlackoutCatalog");if(asset==null){Debug.LogError("BlackoutCatalog.json is missing");enabled=false;return;}
             Catalog=JsonUtility.FromJson<Catalog>(asset.text);SelectedChapter=Mathf.Clamp(PlayerPrefs.GetInt("unity-chapter",0),0,2);
             Loadout.primary=PlayerPrefs.GetString("unity-gun","m4");Loadout.melee=PlayerPrefs.GetString("unity-blade","combat");Loadout.optic=PlayerPrefs.GetString("unity-optic","red");
+            Loadout.primary=Catalog.Gun(Loadout.primary).id;Loadout.melee=Catalog.Blade(Loadout.melee).id;
+            if(Loadout.optic!="red"&&Loadout.optic!="x4"&&Loadout.optic!="x8")Loadout.optic="red";
             Input=gameObject.AddComponent<InputBridge>();gameObject.AddComponent<GameHud>();gameObject.AddComponent<TouchControls>();gameObject.AddComponent<CombatAudio>();
         }
         public void StartRun(bool training=false,bool retry=false)
@@ -48,10 +50,10 @@ namespace AfterBlackout
         public void ReturnToMenu()
         {
             Menu=true;Time.timeScale=1;if(Session!=null)Session.Paused=true;Input.Clear();Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
-            if(Player!=null)Player.enabled=false;foreach(var e in Enemies)if(e!=null)e.Freeze();
+            if(Player!=null){Player.Weapon.Suspend();Player.enabled=false;}foreach(var e in Enemies)if(e!=null)e.Freeze();
         }
         public void Pause(bool paused)
-        { if(Menu||Loading||Session==null||Session.Result!=null)return;PlayerPrefs.Save();Session.Paused=paused;Time.timeScale=paused?0:1;Input.Clear();Cursor.lockState=paused?CursorLockMode.None:Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=paused||Application.isMobilePlatform; }
+        { if(Menu||Loading||Session==null||Session.Result!=null)return;PlayerPrefs.Save();Session.Paused=paused;Time.timeScale=paused?0:1;Input.Clear();if(paused&&Player!=null)Player.Weapon.Suspend();Cursor.lockState=paused?CursorLockMode.None:Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=paused||Application.isMobilePlatform; }
         void OnApplicationFocus(bool focus) { if(!focus)Pause(true); }
         void OnApplicationPause(bool paused) { if(paused)Pause(true); }
         void Update()
@@ -59,6 +61,7 @@ namespace AfterBlackout
             if(Menu||Loading||Session==null)return;
             if(UnityEngine.Input.GetKeyDown(KeyCode.Escape)||UnityEngine.Input.GetKeyDown(KeyCode.P))Pause(!Session.Paused);
             if(Session.Frozen){Time.timeScale=0;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;if(Session.Result!=null)RecordResult();return;}
+            if(Session.Stage==Stage.Briefing&&UnityEngine.Input.GetKeyDown(KeyCode.Return))StartFirstWave();
             float dt=Time.deltaTime;Session.Tick(dt);EnemyKind kind;while(Session.TrySpawn(out kind))Spawn(kind);
             if(Session.Stage==Stage.BossIntro&&!bossCreated)
             { bossCreated=true;Player.Vitals.Heal(40);Player.Weapon.Primary.Fill();Player.Weapon.Grenades=Mathf.Min(3,Player.Weapon.Grenades+1);RefreshPickups();boss=Spawn(EnemyKind.Boss,Session.Level.bossSpawn);CombatAudio.Play("boss"); }
@@ -95,11 +98,13 @@ namespace AfterBlackout
         public void Interact()
         {
             if(Player==null)return;Vector3 pos=Player.transform.position;
-            Session.Interact(Vector3.Distance(pos,ToVector(Session.Level.box))<3,Vector3.Distance(pos,ToVector(Session.Level.exit))<4.5f);
+            if(Session.Stage==Stage.Briefing){StartFirstWave();return;}
+            if(Session.Interact(Vector3.Distance(pos,ToVector(Session.Level.box))<3,Vector3.Distance(pos,ToVector(Session.Level.exit))<4.5f)&&Session.Frozen){Input.Clear();Player.Weapon.Suspend();}
         }
+        public void StartFirstWave(){if(Session!=null&&!Session.Frozen&&Session.Stage==Stage.Briefing){Session.SkipBriefing();Input.Clear();}}
         public void Choose(Facility facility) { if(Session.ChooseFacility(facility)){Resupply();Notify(facility==Facility.Grid?"电网已接通":"炮台已启动");} }
         public void Choose(Upgrade upgrade) { if(Session.ChooseUpgrade(upgrade)){Resupply();if(upgrade==Upgrade.Shock)Player.Weapon.Grenades=Mathf.Min(3,Player.Weapon.Grenades+1);} }
-        void Resupply() { Time.timeScale=1; Player.Vitals.Heal(18);Player.Weapon.Primary.Supply(Player.Weapon.Primary.Definition.supply);Cursor.lockState=Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=Application.isMobilePlatform; }
+        void Resupply() { Time.timeScale=1;Input.Clear();Player.Vitals.Heal(18);Player.Weapon.Primary.Supply(Player.Weapon.Primary.Definition.supply);Cursor.lockState=Application.isMobilePlatform?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=Application.isMobilePlatform; }
         public void BossPhaseChanged() { Player.Vitals.Heal(25);Player.Weapon.Primary.Supply(Player.Weapon.Primary.Definition.supply*2);RefreshPickups();Hazard.ClearAll();Notify("护甲重组 · 新阶段，注意随从"); }
         void RefreshPickups(bool ammoOnly=false) { foreach(var p in FindObjectsByType<SupplyPickup>(FindObjectsSortMode.None))if(!ammoOnly||p.IsAmmo)p.Refresh(); }
         void TickFacilities(float dt)

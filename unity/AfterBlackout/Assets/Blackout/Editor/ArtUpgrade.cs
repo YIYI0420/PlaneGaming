@@ -107,10 +107,47 @@ namespace AfterBlackout.Editor
             if(bounds.size.x>bounds.size.z)model.transform.localRotation=Quaternion.Euler(0,90,0);
             if(id=="m4"||id=="ak")model.transform.localRotation*=Quaternion.Euler(0,180,0);
             if(id=="awm")model.transform.localRotation=Quaternion.Euler(0,180,0);
+            if(id=="pistol")
+            {
+                bounds=BoundsOf(model);Vector3 grip=GripCentre(root.transform,model,bounds.min.y+bounds.size.y*.32f);
+                if(grip.z>bounds.center.z)model.transform.localRotation*=Quaternion.Euler(0,180,0);
+            }
             bounds=BoundsOf(model);model.transform.localScale*=length/Mathf.Max(.01f,bounds.size.z);bounds=BoundsOf(model);model.transform.localPosition+=new Vector3(-bounds.center.x,-bounds.max.y+.085f,-bounds.center.z+.12f);
             Material m4=null;if(id=="m4")m4=Pbr("M4A1",Weapons+"M4A1/M4A1_Base_Color.png",Weapons+"M4A1/M4A1_Normal.png",Weapons+"M4A1/M4A1_Roughness.png",Weapons+"M4A1/M4A1_Metallic.png",Color.white);
             foreach(var renderer in model.GetComponentsInChildren<Renderer>())renderer.sharedMaterials=renderer.sharedMaterials.Select(m=>m4!=null?m4:ConvertMaterial(m)).ToArray();
-            Sight(root.transform,RailHeight(root.transform,model));Hands(root.transform,id);return Save(root,"Weapon_"+id);
+            bounds=BoundsOf(model);Vector3 front=Vector3.zero;int frontCount=0;
+            foreach(var filter in model.GetComponentsInChildren<MeshFilter>())foreach(var vertex in filter.sharedMesh.vertices)
+            {var point=root.transform.InverseTransformPoint(filter.transform.TransformPoint(vertex));if(point.z>bounds.max.z-bounds.size.z*.025f){front+=point;frontCount++;}}
+            var muzzle=new GameObject("Muzzle").transform;muzzle.SetParent(root.transform,false);muzzle.localPosition=frontCount>0?front/frontCount:bounds.center+Vector3.forward*bounds.extents.z;
+            Sight(root.transform,RailHeight(root.transform,model));
+            if(id=="pistol")
+            {
+                root.transform.Find("OpticAssembly").localScale=Vector3.one*.55f;
+                bounds=BoundsOf(model);var grip=GripCentre(root.transform,model,bounds.min.y+bounds.size.y*.35f);grip.y=bounds.min.y+bounds.size.y*.30f;PistolHands(root.transform,grip);
+            }
+            else Hands(root.transform,id);return Save(root,"Weapon_"+id);
+        }
+        static Vector3 GripCentre(Transform root,GameObject model,float threshold)
+        {
+            Vector3 total=Vector3.zero;int count=0;
+            foreach(var filter in model.GetComponentsInChildren<MeshFilter>())foreach(var vertex in filter.sharedMesh.vertices)
+            {var point=root.InverseTransformPoint(filter.transform.TransformPoint(vertex));if(point.y<=threshold){total+=point;count++;}}
+            return count>0?total/count:Vector3.zero;
+        }
+        static void PistolHands(Transform root,Vector3 grip)
+        {
+            var glove=Finish("Glove",new Color(.15f,.18f,.14f),0,.18f);var sleeve=Finish("Sleeve",new Color(.1f,.15f,.12f),0,.16f);
+            // Support hand wraps the firing hand at the grip; neither hand sits under the muzzle.
+            foreach(int side in new[]{-1,1})
+            {
+                var palm=grip+new Vector3(side*.033f,-.006f,side<0?.018f:0);
+                Part(root,side<0?"PistolSupportPalm":"PistolFiringPalm",palm,new Vector3(.064f,.043f,.084f),glove,PrimitiveType.Capsule);
+                for(int i=0;i<4;i++)Part(root,"PistolFinger",palm+new Vector3(-side*.025f,.026f-i*.014f,.035f),new Vector3(.047f,.007f,.018f),glove,PrimitiveType.Capsule);
+                var elbow=grip+new Vector3(side*.16f,-.22f,-.30f);
+                var arm=Part(root,"PistolSleeve",(palm+elbow)*.5f,new Vector3(.085f,Vector3.Distance(palm,elbow)*.5f,.085f),sleeve,PrimitiveType.Capsule);
+                arm.transform.rotation=Quaternion.FromToRotation(Vector3.up,palm-elbow);
+            }
+            var anchor=new GameObject("PistolGrip").transform;anchor.SetParent(root,false);anchor.localPosition=grip;
         }
         static Material ConvertMaterial(Material source)
         {

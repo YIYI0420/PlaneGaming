@@ -94,7 +94,7 @@ namespace AfterBlackout
         }
         void HUD()
         {
-            var session=root.Session;var weapon=root.Player.Weapon;bool scope=weapon.Aiming&&weapon.Slot==0&&weapon.Zoom>2;
+            var session=root.Session;var weapon=root.Player.Weapon;bool scope=weapon.ScopeView;
             if(scope)Scope();Panel(new Rect(12,12,w-24,68),.72f);Label(new Rect(24,22,w*.36f,46),"0"+(session.Level.index+1)+" / 03 · "+session.Level.name,small);Label(new Rect(w*.37f,22,w*.47f,50),root.Objective);if(Button(new Rect(w-95,23,68,42),"暂停"))root.Pause(true);
             if(session.Stage==Stage.Boss||session.Stage==Stage.BossIntro)
             {
@@ -103,16 +103,16 @@ namespace AfterBlackout
             }
             if(Time.unscaledTime<root.NoticeUntil)Label(new Rect(w*.2f,190,w*.6f,60),root.Notice);
             float bottom=root.Input.Touch?170:90;Panel(new Rect(16,h-bottom-20,200,88),.75f);Label(new Rect(27,h-bottom-12,180,34),"生命 "+Mathf.CeilToInt(root.Player.Vitals.Health));Bar(new Rect(27,h-bottom+26,170,6),root.Player.Vitals.Health/100,new Color(.67f,.84f,.5f));Bar(new Rect(27,h-bottom+40,170,4),root.Player.Vitals.Stamina/100,new Color(.4f,.7f,.75f));
-            Panel(new Rect(w-265,h-bottom-20,245,88),.75f);Label(new Rect(w-250,h-bottom-12,220,34),weapon.Slot==2?weapon.Blade.name:weapon.Gun.Definition.name);Label(new Rect(w-250,h-bottom+22,220,35),weapon.Slot==2?"左轻 / 右重 · 体力 18":weapon.Gun.Ammo+" / "+(weapon.Gun.Reserve<0?"∞":weapon.Gun.Reserve.ToString())+(weapon.Gun.Reloading?" 装填中":""),small);
+            Panel(new Rect(w-265,h-bottom-20,245,88),.75f);Label(new Rect(w-250,h-bottom-12,220,34),weapon.Slot==2?weapon.Blade.name:weapon.Gun.Definition.name);Label(new Rect(w-250,h-bottom+22,220,35),weapon.Slot==2?"左轻 / 右重 · 体力 18":weapon.Gun.Ammo+" / "+(weapon.Gun.Reserve<0?"∞":weapon.Gun.Reserve.ToString())+(weapon.Gun.Reloading?" 装填中":" · "+(weapon.EquippedOptic=="x8"?"8×":weapon.EquippedOptic=="x4"?"4×":"红点")),small);
             // A red-dot sight already supplies its own reticle; a second HUD cross obscures it.
             if(!weapon.Aiming||scope||Time.unscaledTime<weapon.HitUntil){Color old=GUI.color;GUI.color=Time.unscaledTime<weapon.HitUntil?Color.red:Color.white;GUI.DrawTexture(new Rect(w/2-8,h/2-1,16,2),Texture2D.whiteTexture);GUI.DrawTexture(new Rect(w/2-1,h/2-8,2,16),Texture2D.whiteTexture);GUI.color=old;}
-            if(session.Stage==Stage.Briefing&&Button(new Rect(w/2-130,h*.65f,260,45),"已了解 · 开始第一波"))session.SkipBriefing();
+            if(session.Stage==Stage.Briefing&&Button(new Rect(w/2-155,h*.65f,310,45),"Enter / E · 开始第一波"))root.StartFirstWave();
         }
         void Pause()
         {
             float width=Mathf.Min(520,w-32),x=(w-width)/2,y=Mathf.Max(12,(h-450)/2);Panel(new Rect(x-12,y-8,width+24,445));Label(new Rect(x+16,y+10,width-32,50),"暂时安全。",title);Options(x+16,y+72,width-32);
             Label(new Rect(x+16,y+156,width-32,24),"视角灵敏度",small);Sensitivity(x+16,y+182,width-32);
-            string[] ids={"red","x4","x8"};for(int i=0;i<3;i++)if(Button(new Rect(x+16+i*(width-32)/3,y+250,(width-36)/3,38),i==0?"红点":i==1?"四倍":"八倍"))root.Player.Weapon.SetOptic(ids[i]);
+            string[] ids={"red","x4","x8"};for(int i=0;i<3;i++)if(Button(new Rect(x+16+i*(width-32)/3,y+250,(width-36)/3,38),i==0?"主武器 红点":i==1?"主武器 四倍":"主武器 八倍",root.Session.Loadout.optic==ids[i]))root.Player.Weapon.SetOptic(ids[i]);
             if(Button(new Rect(x+16,y+307,width-32,48),"继续生存 →"))root.Pause(false);if(Button(new Rect(x+16,y+369,(width-40)/2,42),"重试本关"))root.StartRun(root.Session.Training,true);if(Button(new Rect(x+24+(width-40)/2,y+369,(width-40)/2,42),"返回整备"))root.ReturnToMenu();
             if(Event.current.rawType==EventType.MouseUp)PlayerPrefs.Save();
         }
@@ -134,7 +134,14 @@ namespace AfterBlackout
         void BuildScope()
         { scopeMask=new Texture2D(256,256,TextureFormat.RGBA32,false);var pixels=new Color32[256*256];for(int y=0;y<256;y++)for(int x=0;x<256;x++){float r=new Vector2(x-127.5f,y-127.5f).magnitude;pixels[y*256+x]=new Color32(0,0,0,r>119?byte.MaxValue:(byte)0);}scopeMask.SetPixels32(pixels);scopeMask.Apply(); }
         void Scope()
-        { float size=Mathf.Min(w,h)*.94f,x=(w-size)/2,y=(h-size)/2;Panel(new Rect(0,0,x,h),1);Panel(new Rect(x+size,0,w-x-size,h),1);Panel(new Rect(x,0,size,y),1);Panel(new Rect(x,y+size,size,h-y-size),1);GUI.DrawTexture(new Rect(x,y,size,size),scopeMask); }
+        {
+            float size=Mathf.Min(w,h)*.94f,x=(w-size)/2,y=(h-size)/2;Panel(new Rect(0,0,x,h),1);Panel(new Rect(x+size,0,w-x-size,h),1);Panel(new Rect(x,0,size,y),1);Panel(new Rect(x,y+size,size,h-y-size),1);GUI.DrawTexture(new Rect(x,y,size,size),scopeMask);
+            Color ink=new Color(.07f,.09f,.08f,.9f);float r=size*.32f;
+            Fill(new Rect(w/2-r,h/2,r*2,1),ink);Fill(new Rect(w/2,h/2-r,1,r*2),ink);
+            int ticks=root.Player.Weapon.EquippedOptic=="x8"?6:3;
+            for(int i=1;i<=ticks;i++){float at=i*r/(ticks+1);Fill(new Rect(w/2-5,h/2+at,10,1),ink);Fill(new Rect(w/2+at,h/2-4,1,8),ink);Fill(new Rect(w/2-at,h/2-4,1,8),ink);}
+            Label(new Rect(w/2+18,h/2+r+7,80,25),root.Player.Weapon.EquippedOptic=="x8"?"8×":"4×",small);
+        }
         static string Format(float seconds){int whole=(int)seconds;return (whole/60).ToString("00")+":"+(whole%60).ToString("00");}
         void OnDestroy(){if(scopeMask!=null)Destroy(scopeMask);if(menuShade!=null)Destroy(menuShade);}
     }

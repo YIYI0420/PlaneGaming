@@ -33,9 +33,13 @@ namespace AfterBlackout
                 box("Handguard",new Vector3(0,.01f,length*.39f),new Vector3(.082f,.085f,length*.4f),id=="ak"?Material("#635344",0,.15f):dark);
                 box("Magazine",new Vector3(0,-.15f,.12f),new Vector3(.06f,.25f,.09f),steel);box("Grip",new Vector3(0,-.15f,-.02f),new Vector3(.06f,.17f,.075f),grip);
                 for(int i=0;i<8;i++){box("Rail",new Vector3(0,.07f,.10f+i*.025f),new Vector3(.09f,.012f,.009f),steel);box("Vent",new Vector3(.044f,.02f,.22f+i*.02f),new Vector3(.007f,.035f,.01f),edge);}
-                // Sight aperture is physically centred on the camera ray when ADS offsets Y by -.16.
-                box("SightLeft",new Vector3(-.048f,.16f,.08f),new Vector3(.013f,.085f,.045f),dark);box("SightRight",new Vector3(.048f,.16f,.08f),new Vector3(.013f,.085f,.045f),dark);box("SightTop",new Vector3(0,.205f,.08f),new Vector3(.108f,.013f,.045f),dark);
-                var dot=Part(group.transform,"RedDot",PrimitiveType.Sphere,new Vector3(0,.16f,.095f),Vector3.one*.0035f,Material("#ff2d14",0,.1f,true));dot.GetComponent<Renderer>().shadowCastingMode=ShadowCastingMode.Off;
+                var mount=new GameObject("OpticAssembly").transform;mount.SetParent(group.transform,false);mount.localPosition=new Vector3(0,.075f,.08f);
+                Part(mount,"OpticBase",PrimitiveType.Cube,new Vector3(0,.006f,0),new Vector3(.074f,.016f,.095f),dark);
+                Part(mount,"OpticRiser",PrimitiveType.Cube,new Vector3(0,.021f,0),new Vector3(.052f,.020f,.055f),dark);
+                Part(mount,"SightLeft",PrimitiveType.Cube,new Vector3(-.038f,.065f,0),new Vector3(.01f,.066f,.04f),dark);
+                Part(mount,"SightRight",PrimitiveType.Cube,new Vector3(.038f,.065f,0),new Vector3(.01f,.066f,.04f),dark);
+                Part(mount,"SightTop",PrimitiveType.Cube,new Vector3(0,.098f,0),new Vector3(.086f,.01f,.04f),dark);
+                var dot=Part(mount,"RedDot",PrimitiveType.Sphere,new Vector3(0,.065f,.015f),Vector3.one*.0026f,Material("#ff2d14",0,.1f,true));dot.GetComponent<Renderer>().shadowCastingMode=ShadowCastingMode.Off;
             }
             else
             {
